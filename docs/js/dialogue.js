@@ -142,6 +142,7 @@ export class Dialogue {
       case 'activity-stop':
         return this.stopActivity();
       default:
+        if (id.startsWith('toolbox-zone:')) return this.showToolboxTools(id.slice(13));
         if (id.startsWith('zone:')) return this.handleZonePick(id.slice(5));
         if (id.startsWith('activity:')) return this.startActivity(id.slice(9));
         return this.start();
@@ -214,24 +215,41 @@ export class Dialogue {
       'Here are some tools that work really well for this zone. Which one would you like to try?',
       [
         ...activities.map((a) => ({ id: `activity:${a.id}`, label: `${a.emoji} ${a.name}` })),
-        { id: 'show-toolbox', label: '🧰 See every tool' },
+        { id: 'show-toolbox', label: '🧰 More tools' },
         { id: 'skip-activities', label: '🙅 Maybe later' },
       ],
     );
   }
 
-  // The whole toolbox inside the same conversation: no separate screen,
-  // the child picks a tool and the flow carries straight on to the
+  // The toolbox inside the same conversation: no separate screen, and
+  // never every tool at once. The child first picks a zone, then sees
+  // just that zone's few tools, and the flow carries straight on to the
   // activity and the body check afterwards.
   openToolbox() {
     this.clearTimers();
     this.activity = null;
     this.state = 'toolbox';
     this.emit(
-      '🧰 Here’s my toolbox! Every tool helps your body and feelings, and you can try one any time. Which one shall we try together?',
+      '🧰 Here’s my toolbox! Each zone has its own little set of tools. Which zone shall we look in?',
       [
-        ...Object.values(ACTIVITIES).map((a) => ({ id: `activity:${a.id}`, label: `${a.emoji} ${a.name}` })),
+        ...ZONE_ORDER.map((z) => ({
+          id: `toolbox-zone:${z}`,
+          label: `${ZONES[z].emoji} ${ZONES[z].name}: ${ZONES[z].tagline}`,
+        })),
         { id: 'restart', label: '💬 Check in instead' },
+      ],
+    );
+  }
+
+  showToolboxTools(zoneId) {
+    if (!ZONES[zoneId]) return this.openToolbox();
+    const zone = ZONES[zoneId];
+    this.state = 'toolbox';
+    this.emit(
+      `${zone.emoji} These tools are just right for ${zone.name} feelings. Which one shall we try together?`,
+      [
+        ...activitiesForZone(zoneId).map((a) => ({ id: `activity:${a.id}`, label: `${a.emoji} ${a.name}` })),
+        { id: 'show-toolbox', label: '↩️ Other zones' },
       ],
     );
   }
