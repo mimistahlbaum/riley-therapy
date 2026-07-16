@@ -100,8 +100,8 @@ export class UI {
   setZone(zoneId) {
     const zone = zoneId ? ZONES[zoneId] : null;
     const root = document.documentElement;
-    root.style.setProperty('--zone', zone ? zone.css : '#F26D8D');
-    root.style.setProperty('--zone-soft', zone ? zone.cssSoft : '#FFE9F0');
+    root.style.setProperty('--zone', zone ? zone.css : '#F0716A');
+    root.style.setProperty('--zone-soft', zone ? zone.cssSoft : '#FBE4DE');
     document.getElementById('brand-heart').textContent = zone ? zone.emoji : '💗';
   }
 

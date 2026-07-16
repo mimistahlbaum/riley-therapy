@@ -2,15 +2,15 @@
    Warm, rounded, child-friendly design with big touch targets. */
 
 :root {
-  --zone: #f26d8d;
-  --zone-soft: #ffe9f0;
-  --ink: #4a3b44;
-  --ink-soft: #8a7480;
-  --card: rgba(255, 251, 246, 0.94);
-  --card-solid: #fffbf6;
+  --zone: #f0716a;
+  --zone-soft: #fbe4de;
+  --ink: #4a3e35;
+  --ink-soft: #8a7a6b;
+  --card: rgba(255, 252, 247, 0.94);
+  --card-solid: #fffcf7;
   --radius-l: 26px;
   --radius-m: 18px;
-  --shadow: 0 10px 30px rgba(120, 60, 90, 0.16);
+  --shadow: 0 10px 30px rgba(110, 78, 48, 0.16);
   --font: "Nunito", "Varela Round", ui-rounded, "Hiragino Maru Gothic ProN",
     "Segoe UI", system-ui, -apple-system, sans-serif;
 }
@@ -24,7 +24,7 @@ html, body {
   overflow: hidden;
   font-family: var(--font);
   color: var(--ink);
-  background: linear-gradient(#bde3ff, #e8f6e8);
+  background: linear-gradient(#f4e9da, #eaddc9);
 }
 
 #scene {
@@ -250,7 +250,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: rgba(80, 40, 70, 0.35);
+  background: rgba(64, 48, 32, 0.35);
   backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
@@ -304,7 +304,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .tool-card {
   text-align: left;
   background: #fff;
-  border: 2.5px solid #f3e4ea;
+  border: 2.5px solid #efe2d3;
   border-radius: var(--radius-m);
   padding: 14px 16px;
   display: flex;
@@ -393,7 +393,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: #fff;
   border-radius: var(--radius-m);
   padding: 10px 14px;
-  border: 2px solid #f3e4ea;
+  border: 2px solid #efe2d3;
 }
 
 .journal-zone {
@@ -445,7 +445,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   padding: 13px 4px;
   font-weight: 700;
   font-size: 1.02rem;
-  border-bottom: 2px solid #f7ecf1;
+  border-bottom: 2px solid #f2e8da;
 }
 
 .setting-row input[type="checkbox"] {
@@ -453,7 +453,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   width: 52px;
   height: 30px;
   border-radius: 999px;
-  background: #e8d8df;
+  background: #e5d6c3;
   position: relative;
   cursor: pointer;
   transition: background 0.2s;
@@ -492,7 +492,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   place-content: center;
   justify-items: center;
   gap: 8px;
-  background: linear-gradient(#ffe9f0, #e8f6e8);
+  background: linear-gradient(#f7ecdc, #eee0cb);
   font-weight: 800;
   color: var(--ink);
   transition: opacity 0.5s;
