@@ -47,12 +47,17 @@ export class Speech {
     this.enabled = true;
     this.onstart = null;
     this.onend = null;
+    // Fired when the browser refuses to play before a user gesture, so the
+    // UI can invite the child to tap the replay button.
+    this.onblocked = null;
 
     this.currentAudio = null;
     this.currentWs = null;
     this.requestSeq = 0;
     this.edgeFailures = 0;
     this.cache = new Map(); // cleaned text -> audio Blob
+    this.lastText = null; // last message asked to be spoken (cleaned)
+    this.pendingText = null; // blocked by autoplay policy, waiting for a gesture
 
     // Fallback: browser speech synthesis.
     this.synthAvailable = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -87,7 +92,7 @@ export class Speech {
         try { ws.close(); } catch { /* already closed */ }
         reject(err);
       };
-      const timeout = setTimeout(() => fail(new Error('Edge TTS timed out')), 10000);
+      const timeout = setTimeout(() => fail(new Error('Edge TTS timed out')), 6000);
 
       ws.onopen = () => {
         const timestamp = new Date().toString();
@@ -158,7 +163,14 @@ export class Speech {
       if (seq === this.requestSeq) this.onend?.();
     };
     audio.onpause = audio.onended;
-    await audio.play();
+    try {
+      await audio.play();
+    } catch (err) {
+      audio.onended = audio.onpause = null;
+      URL.revokeObjectURL(audio.src);
+      if (this.currentAudio === audio) this.currentAudio = null;
+      throw err;
+    }
     if (seq === this.requestSeq) this.onstart?.();
   }
 
@@ -190,7 +202,21 @@ export class Speech {
     utterance.volume = 1;
     utterance.onstart = () => { if (seq === this.requestSeq) this.onstart?.(); };
     utterance.onend = () => { if (seq === this.requestSeq) this.onend?.(); };
-    window.speechSynthesis.speak(utterance);
+    utterance.onerror = (e) => {
+      if (seq !== this.requestSeq) return;
+      // Before the first tap the browser refuses to speak; keep the text
+      // so it plays on the next gesture instead of vanishing silently.
+      if (e.error === 'not-allowed') {
+        this.pendingText = text;
+        this.onblocked?.();
+      }
+      this.onend?.();
+    };
+    // Chrome can swallow a speak() issued in the same tick as cancel(),
+    // so give it a moment to settle first.
+    setTimeout(() => {
+      if (seq === this.requestSeq) window.speechSynthesis.speak(utterance);
+    }, 60);
   }
 
   // ---- Public API ---------------------------------------------------------
@@ -204,9 +230,13 @@ export class Speech {
   }
 
   async speak(text) {
-    if (!this.available || !this.enabled) return;
+    if (!this.available) return;
     const cleaned = this.clean(text);
     if (!cleaned) return;
+    // Remember the message even while the voice is off, so switching it
+    // back on (or tapping replay) reads the current message, not an old one.
+    this.lastText = cleaned;
+    if (!this.enabled) return;
     this.stop();
     const seq = ++this.requestSeq;
 
@@ -224,16 +254,39 @@ export class Speech {
         this.edgeFailures = 0;
         await this.playBlob(blob, seq);
         return;
-      } catch {
-        this.edgeFailures += 1;
+      } catch (err) {
         if (seq !== this.requestSeq) return;
+        // Autoplay policy blocked playback: the audio itself is fine, the
+        // browser just wants a user gesture first. Don't count it against
+        // the Edge voice; keep the line ready for the next tap.
+        if (err?.name === 'NotAllowedError') {
+          this.pendingText = cleaned;
+          this.onblocked?.();
+          return;
+        }
+        this.edgeFailures += 1;
       }
     }
     this.speakFallback(cleaned, seq);
   }
 
+  // Speak the most recent message again (e.g. the replay button).
+  replay() {
+    this.pendingText = null;
+    if (this.lastText) this.speak(this.lastText);
+  }
+
+  // Call from the first user gesture: plays any line that autoplay blocked.
+  unlock() {
+    if (!this.enabled) return;
+    const pending = this.pendingText;
+    this.pendingText = null;
+    if (pending && !this.isSpeaking()) this.speak(pending);
+  }
+
   stop() {
     this.requestSeq += 1;
+    this.pendingText = null;
     if (this.currentWs && this.currentWs.readyState <= WebSocket.OPEN) {
       try { this.currentWs.close(); } catch { /* already closed */ }
     }
