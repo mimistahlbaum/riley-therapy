@@ -55,6 +55,10 @@ try {
   aiEnabled = localStorage.getItem('riley-ai-enabled') !== 'false';
 } catch { /* storage unavailable: keep default */ }
 
+// With free chat available, the check-in starts as open conversation
+// (the original narrative design) instead of a feeling picker.
+dialogue.freeChat = () => aiEnabled && ai.available;
+
 // Choice ids beginning with "ai:" are tappable suggestions from the AI;
 // everything else belongs to the scripted dialogue.
 function routeChoice(id) {
@@ -93,7 +97,14 @@ async function handleFreeText(text) {
     return;
   }
 
-  if (res.zone) dialogue.setZone(res.zone); // heart takes the zone colour
+  if (res.zone) {
+    // A zone worked out in conversation counts as a check-in: journal it
+    // (once per zone change) and let the heart take the zone colour.
+    if (res.zone !== dialogue.zoneId) {
+      journal.add({ zone: res.zone, feeling: res.feeling || null });
+    }
+    dialogue.setZone(res.zone);
+  }
   riley.setGesture('nod');
 
   const choices = [];
@@ -123,11 +134,14 @@ ui = new UI({
   onVoiceToggle: (on) => speech.setEnabled(on),
   onMotionToggle: (on) => world.setMotion(on),
   onFreeText: handleFreeText,
+  onListenStart: () => speech.stop(),
   onAIToggle: (on) => {
     aiEnabled = on;
     try {
       localStorage.setItem('riley-ai-enabled', String(on));
     } catch { /* storage unavailable */ }
+    // Refresh the greeting so it matches the new mode straight away.
+    if (dialogue.state === 'greeting') dialogue.start();
   },
 });
 ui.setAIVisible(aiEnabled);

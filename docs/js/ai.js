@@ -11,7 +11,7 @@
 //    becomes tappable buttons, activities and zone colours;
 //  - any network or parsing failure degrades to the scripted buttons.
 
-import { ACTIVITIES, ZONES } from './zones.js';
+import { ACTIVITIES, ZONES, feelingById } from './zones.js';
 
 const ENDPOINT = 'https://text.pollinations.ai/openai';
 const MODEL = 'openai';
@@ -20,6 +20,10 @@ const TIMEOUT_MS = 30000;
 
 const TOOL_LIST = Object.values(ACTIVITIES)
   .map((a) => `${a.id} (${a.name.toLowerCase()}: ${a.blurb.toLowerCase()})`)
+  .join(', ');
+
+const FEELING_LIST = Object.values(ZONES)
+  .flatMap((z) => z.feelings.map((f) => f.id))
   .join(', ');
 
 const SYSTEM_PROMPT = `You are Riley, a small soft companion character in a feelings app for children aged about 5 to 11. You look like a little round white creature with a glowing heart on your chest. The heart glows in the colour of the child's zone.
@@ -52,7 +56,8 @@ Reply ONLY with one JSON object and nothing else, in this exact shape:
 {"reply": "what you say to the child",
  "suggestions": ["up to 3 very short answers the child could tap, 2-6 words each"],
  "activity": "a tool id from the list if you want to invite the child to try it, else null",
- "zone": "blue, green, yellow or red if you can tell the child's zone from what they said, else null"}`;
+ "zone": "blue, green, yellow or red if you can tell the child's zone from what they said, else null",
+ "feeling": "the closest feeling word if the child named or agreed to one (only these: ${FEELING_LIST}), else null"}`;
 
 // Deterministic, client-side guard. These messages never go to the AI;
 // the app answers them itself with a fixed supportive message.
@@ -166,6 +171,7 @@ export class RileyAI {
       : [];
     const activity = ACTIVITIES[parsed.activity] ? parsed.activity : null;
     const zone = ZONES[parsed.zone] ? parsed.zone : null;
-    return { reply: parsed.reply.trim().slice(0, 400), suggestions, activity, zone };
+    const feeling = feelingById(parsed.feeling) ? parsed.feeling : null;
+    return { reply: parsed.reply.trim().slice(0, 400), suggestions, activity, zone, feeling };
   }
 }
