@@ -11,7 +11,7 @@
 //    becomes tappable buttons, activities and zone colours;
 //  - any network or parsing failure degrades to the scripted buttons.
 
-import { ACTIVITIES, ZONES, feelingById } from './zones.js';
+import { ACTIVITIES, ZONES, FEELING_TO_ZONE, feelingById } from './zones.js';
 
 const ENDPOINT = 'https://text.pollinations.ai/openai';
 const MODEL = 'openai';
@@ -36,8 +36,8 @@ How you talk:
 
 How a conversation flows (follow these stages in order, one step per reply):
 1. Welcome and feeling check-in: greet the child warmly and ask how they are feeling.
-2. Zone identification: from what they tell you, help them name the feeling and gently work out which zone it sounds like. Ask a short follow-up question if you are not sure.
-3. Zone confirmation: say which zone you think it is and ask if that feels right. Only set "zone" in your JSON once the child has told you a clear feeling or agreed with your guess. All zones are okay to be in.
+2. Feeling naming: if what they say is unclear, ask ONE short follow-up about how their body feels (fast or slow, heavy or light). Never ask the child which zone or colour their feeling is — working out the zone is your job, and the child does not need to know the zones at all.
+3. Zone naming: as soon as the child names a clear feeling, tell them which zone it sounds like in one warm sentence and set "zone" and "feeling" in that same reply. Do not ask for confirmation first; if the child later disagrees, kindly adjust. All zones are okay to be in.
 4. Activity: invite them to try one matching tool by setting "activity" (the app will guide it step by step, so do not explain the steps yourself).
 5. Body check: after an activity, ask how their body feels now.
 6. Reflection: if they feel better, celebrate — they helped their own body, that is a superpower. If not, be kind: feelings need time, offer another tool, and remind them a trusted grown-up can help. Then they can always come back to say hello.
@@ -55,7 +55,7 @@ Tools you may invite the child to try (use only these ids): ${TOOL_LIST}.
 
 Reply ONLY with one JSON object and nothing else, in this exact shape:
 {"reply": "what you say to the child",
- "suggestions": ["up to 3 very short answers the child could tap, 2-6 words each"],
+ "suggestions": ["up to 3 very short answers the child could tap, 2-6 words each — things the child might say back (like 'A bit tired' or 'Yes please'), never zone or colour quiz options"],
  "activity": "a tool id from the list if you want to invite the child to try it, else null",
  "zone": "blue, green, yellow or red if you can tell the child's zone from what they said, else null",
  "feeling": "the closest feeling word if the child named or agreed to one (only these: ${FEELING_LIST}), else null"}`;
@@ -98,6 +98,7 @@ function parseReply(raw) {
 }
 
 const RETRY_AFTER_MS = 60000; // wait this long before probing a down service again
+const ATTEMPTS = 2; // tries per message before falling back to the scripted buttons
 
 export class RileyAI {
   constructor() {
@@ -134,23 +135,7 @@ export class RileyAI {
     }
   }
 
-  /**
-   * Ask Riley for a reply to the child's message.
-   * Resolves to {reply, suggestions, activity, zone} or null on failure.
-   * Never throws.
-   */
-  async chat(text, currentZone = null) {
-    if (!this.available) return null;
-    const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...(currentZone
-        ? [{ role: 'system', content: `The child's current zone in the app is ${currentZone}.` }]
-        : []),
-      ...this.history,
-      { role: 'user', content: text },
-    ];
-
-    let raw;
+  async request(messages) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -168,14 +153,38 @@ export class RileyAI {
       clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      raw = data?.choices?.[0]?.message?.content;
+      let raw = data?.choices?.[0]?.message?.content;
       // Some models return content as an array of parts.
       if (Array.isArray(raw)) raw = raw.map((part) => part?.text || '').join('');
+      return raw;
     } catch {
-      return this.fail();
+      return null;
     }
+  }
 
-    const parsed = parseReply(raw);
+  /**
+   * Ask Riley for a reply to the child's message.
+   * Resolves to {reply, suggestions, activity, zone} or null on failure.
+   * Never throws.
+   */
+  async chat(text, currentZone = null) {
+    if (!this.available) return null;
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...(currentZone
+        ? [{ role: 'system', content: `The child's current zone in the app is ${currentZone}.` }]
+        : []),
+      ...this.history,
+      { role: 'user', content: text },
+    ];
+
+    // One quiet retry before giving up: a single flaky response or a
+    // malformed reply shouldn't drop the child out of free chat and onto
+    // the scripted buttons.
+    let parsed = null;
+    for (let attempt = 0; attempt < ATTEMPTS && !parsed; attempt++) {
+      parsed = parseReply(await this.request(messages));
+    }
     if (!parsed) return this.fail();
     this.failures = 0;
 
@@ -192,8 +201,12 @@ export class RileyAI {
           .slice(0, 3)
       : [];
     const activity = ACTIVITIES[parsed.activity] ? parsed.activity : null;
-    const zone = ZONES[parsed.zone] ? parsed.zone : null;
     const feeling = feelingById(parsed.feeling) ? parsed.feeling : null;
+    // Working out the zone is Riley's job, never the child's: if the model
+    // named a feeling but left the zone out, derive it from the same
+    // mapping the scripted check-in uses.
+    let zone = ZONES[parsed.zone] ? parsed.zone : null;
+    if (!zone && feeling) zone = FEELING_TO_ZONE[feeling] || null;
     return { reply: parsed.reply.trim().slice(0, 400), suggestions, activity, zone, feeling };
   }
 }
