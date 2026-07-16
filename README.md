@@ -1,34 +1,84 @@
 <img src="public/riley.webp" alt="Riley (Character)" width="100">
 
-# Winter School on AI for XR
+# Riley — Emotional Wellness Companion
 
-This is a demo project featuring **Riley**, an LLM-powered assistant in augmented reality, designed to support children's emotional wellness. It was created by Team Spot during the Winter School on AI for XR, held from July 14th to 18th, 2025, and organized by Professor Mark Billinghurst at the University of South Australia.
+**Riley** is a friendly companion who helps children notice, name and manage their feelings using the [Zones of Regulation](https://zonesofregulation.com) framework.
 
-> [!NOTE]
->
-> A Meta Quest device is recommended to fully experience the demo, although it is not strictly required. You can alternatively use the Meta XR Simulator via Unity, but please note that the background will be black in the simulator.
+This repository contains two versions:
 
-## What does Riley do?
+| Version | Where it runs | Status |
+| --- | --- | --- |
+| **Web app** (`docs/`) | Any modern browser, plus VR/AR headsets via WebXR | ✅ Current, full version |
+| **Unity demo** (`Assets/`) | Meta Quest via Unity + Convai | 🗄️ Original 2025 prototype (kept for reference) |
 
-Riley is an on-demand emotional wellness companion that helps children identify, understand, and manage their emotions through interactive AR experiences, based on [Zones of Regulation](https://zonesofregulation.com), a psychology-based framework.
+## The web app
 
-Specifically, Riley asks questions about the user's feelings, detects their zone, and provides activities to help regulate their emotions depending on their zone.
+The web app is a complete rebuild of the 2025 prototype. It runs entirely in the browser with no installs, accounts or API keys, and the same page works on:
 
-## How does Riley work?
+- **Desktop and mobile browsers**: interact with Riley in a friendly 3D world
+- **VR headsets (e.g. Meta Quest)**: open the page in the headset browser and press **Enter VR**, or **Enter AR** for passthrough, then point and click with the controllers
 
-Riley is powered by [Convai](https://www.convai.com/) for its flexible conversational abilities and Unity with Meta XR for the AR experience.
+### What's included
 
-To enhance conversational flexibility, we use Convai's Narrative Design feature. This enables Riley to have a more engaging and interactive conversation with the user, and allows the user to explore various topics and emotions. The following diagram shows the actual settings used on the Convai website. (Only the Yellow Zone has been implemented so far.)
+Everything the prototype had, plus the parts it left unfinished:
 
-<img src="public/convai_narrative_design.webp" alt="Convai narrative design" width="300">
+- **All four zones**: Blue, Green, Yellow and Red are fully implemented (the demo covered Yellow only). Riley's chest heart glows the colour of your zone.
+- **Check-in conversation**: Riley asks how you feel, reflects the feeling back, identifies the zone and offers matching tools. The flow is scripted and predictable, which keeps it dependable and safe for children, with no external AI service required.
+- **11 regulation tools**: balloon breathing, dragon breaths, 5-4-3-2-1 grounding, counting, rocket countdown, squeeze and let go, push the wall, star stretch, cozy care, talk it out, three happy things and a mindful minute. Breathing tools are guided by an animated balloon.
+- **Toolbox mode**: try any tool directly, without checking in first.
+- **Learn mode**: kid-friendly explanations of all four zones and their feelings.
+- **Feelings journal**: check-ins are remembered locally on the device (never uploaded), so children and carers can look back together.
+- **An animated Riley**: the character now blinks, bobs, waves, nods and celebrates (the prototype used a static, unrigged model).
+- **Riley speaks**: messages are read aloud with the built-in speech synthesis of the browser. Voice can be switched off.
+- **Accessible, child-friendly design**: large touch targets, keyboard focus states, reduced-motion support and a bright rounded look.
 
-Using Convai's Embodied Actions, the color of Riley's heart automatically changes based on the user's zone as follows:
+### Privacy
 
-| Yellow Zone                               | Green Zone                              |
-| ----------------------------------------- | --------------------------------------- |
-| ![Riley Yellow](public/riley_yellow.webp) | ![Riley Green](public/riley_green.webp) |
+The app is a static site. There are no accounts, no analytics, no API keys and no network calls at runtime. The journal is stored in the browser's local storage only.
 
-## Setting up the demo
+Riley is a practice buddy, not a therapist. The conversation consistently encourages children to involve a trusted adult when feelings stay big.
+
+### Run it locally
+
+Any static file server works:
+
+```bash
+cd docs
+python3 -m http.server 8080
+# then open http://localhost:8080
+```
+
+### Deploy to GitHub Pages
+
+The repository ships with a workflow (`.github/workflows/deploy-pages.yml`) that publishes `docs/` automatically:
+
+1. In the repository settings, go to **Settings → Pages**.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Merge or push to `main`. The site will be published at `https://<user>.github.io/riley-therapy/`.
+
+Alternatively, without the workflow: set **Source** to **Deploy from a branch**, choose `main` and the `/docs` folder.
+
+### Using it on a VR headset
+
+1. Open the GitHub Pages URL in the headset's browser (e.g. Meta Quest Browser).
+2. Press **Enter VR** (fully virtual) or **Enter AR** (passthrough, like the original AR demo).
+3. Point at Riley's floating panel with either controller and pull the trigger to choose answers. The panel mirrors the whole conversation, including breathing activities and tools.
+
+### Tech notes
+
+- [Three.js](https://threejs.org) (vendored in `docs/js/vendor/`, MIT licence) with WebXR for VR/AR
+- Riley is built procedurally in code — no model files to download, so the app loads fast
+- Web Speech API for Riley's voice, with graceful fallback when unavailable
+- No build step: plain ES modules, deployable as-is
+
+## The original Unity demo (2025)
+
+The Unity project in `Assets/` is the original prototype featuring Riley as an LLM-powered assistant in augmented reality, created by **Team Spot** during the Winter School on AI for XR (July 14–18, 2025), organised by Professor Mark Billinghurst at the University of South Australia. It uses Unity with Meta XR and [Convai](https://www.convai.com/) narrative design, and requires a Convai API key and a Meta Quest device (or the Meta XR Simulator).
+
+Known limitations of the prototype (all addressed in the web app): only the Yellow Zone was implemented, the model was static and unrigged, spawning was random, and a Convai API key with quota was required.
+
+<details>
+<summary>Unity demo setup instructions (archived)</summary>
 
 1. Get your Convai API Key:
    - Sign up for a free account at [Convai](https://convai.com).
@@ -36,40 +86,14 @@ Using Convai's Embodied Actions, the color of Riley's heart automatically change
 2. Install [Unity](https://unity.com/download)
 3. Clone this repository using Git.
 4. Add the project in the cloned repository to Unity Hub.
-   - Open Unity Hub, click on "Add" → "Add project from disk", then select the cloned repository.
 5. Open the project in Unity. (It may take some time to load initially.)
 6. In Unity, go to the menu bar → "Convai" → "API Key Setup" to set the Convai API Key you copied earlier.
 7. In Unity, go to the Assets panel → open `Scenes/Main` to open the scene.
 8. In Unity, select the ▶️ (Play) button on top of the screen, then the Meta XR Simulator will be launched.
 
-Once you see the character in the simulator's black screen, you’re ready to interact with Riley.
+For Meta Quest, go to "File" → "Build and Run" with your device connected via USB and developer mode enabled. Press the A button on the right controller (or the B key in the simulator) to start a conversation.
 
-> [!WARNING]
->
-> - As of now, Riley is randomly spawned in the scene, so if you can't see Riley when launching the demo, try scrolling down or using the WASD keys to move around and find Riley, or restart the demo. (No need to relaunch Unity itself.)
-> - If you still can't find Riley, try changing the spawnable area in the Unity scene. [Details](public/how_to_change_spawnable_location.png)
-> - If you see a lot of red text on the screen, it may mean:
->     - Your device may not have internet connection.
->     - Your API Key is not set, or your Convai quota is used up.
-
-## Installing the demo on Meta Quest
-
-If you are using Meta Quest, go to the menu bar → "File" → "Build and Run" to build and deploy the project to your Meta Quest device. Make sure your device is connected to your computer via USB and that you have enabled developer mode.
-
-## Playing the demo
-
-1. Ensure your device is connected to the Internet.
-2. Approach Riley until you see a floating message dialog around Riley. (This may take time. If you can't see the dialog, try moving around or restarting the demo.)
-3. Interact with Riley:
-   - For Meta Quest, press the A button on the right controller to start a conversation, or
-   - For Meta XR Simulator, press the B key on your keyboard to start a conversation.
-
-## Known Issues
-
-- Riley is randomly spawned on the surface of an arbitrary table.
-- Riley model's animations haven't been implemented yet. Currently, we use Convai's default NPC model (Ameria), make it invisible and put the static Riley 3D model which doesn't even include rigging.
-- Riley's speech currently uses Convai’s default "Young Female Child" voice. It would be great to switch it to a custom voice using [ElevenLabs integration](https://docs.convai.com/api-docs/plugins-and-integrations/other-integrations/third-party-api-integrations/elevenlabs-api-integration).
-- This project has not yet been tested with kids as it's for demo purposes.
+</details>
 
 ## Members of Team Spot
 

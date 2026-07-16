@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Riley — Emotional Wellness Companion</title>
+  <meta name="description" content="Riley is a friendly companion who helps children notice and manage their feelings using the Zones of Regulation. Works in your browser and in VR headsets.">
+  <meta name="theme-color" content="#FFE9F0">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./js/vendor/three.module.min.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="scene" aria-hidden="true"></canvas>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-heart" id="brand-heart">💗</span>
+      <span class="brand-name">Riley</span>
+    </div>
+    <nav class="tabs" aria-label="Modes">
+      <button class="tab is-active" data-tab="checkin">💬 Check in</button>
+      <button class="tab" data-tab="toolbox">🧰 Toolbox</button>
+      <button class="tab" data-tab="learn">🌈 Learn</button>
+      <button class="tab" data-tab="journal">📓 Journal</button>
+    </nav>
+    <div class="top-actions">
+      <button id="btn-voice" class="icon-btn" aria-pressed="true" title="Riley's voice on/off" aria-label="Toggle Riley's voice">🔊</button>
+      <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Settings">⚙️</button>
+    </div>
+  </header>
+
+  <div id="xr-buttons" class="xr-buttons" hidden>
+    <button id="btn-vr" class="xr-btn" hidden>🥽 Enter VR</button>
+    <button id="btn-ar" class="xr-btn" hidden>✨ Enter AR</button>
+  </div>
+
+  <main id="chat" class="chat" aria-label="Conversation with Riley">
+    <div class="bubble">
+      <div class="bubble-label">Riley</div>
+      <p id="riley-text" aria-live="polite"></p>
+    </div>
+    <div id="choices" class="choices" role="group" aria-label="Your answers"></div>
+  </main>
+
+  <!-- Toolbox -->
+  <section id="sheet-toolbox" class="sheet" hidden aria-label="Toolbox">
+    <div class="sheet-card">
+      <header class="sheet-head">
+        <h2>🧰 Riley’s Toolbox</h2>
+        <button class="icon-btn sheet-close" aria-label="Close">✖️</button>
+      </header>
+      <p class="sheet-intro">Every tool here helps your body and feelings. Pick any tool to try it with Riley, any time — you don’t need to check in first.</p>
+      <div id="toolbox-grid" class="tool-grid"></div>
+    </div>
+  </section>
+
+  <!-- Learn -->
+  <section id="sheet-learn" class="sheet" hidden aria-label="Learn about the zones">
+    <div class="sheet-card">
+      <header class="sheet-head">
+        <h2>🌈 The Four Zones</h2>
+        <button class="icon-btn sheet-close" aria-label="Close">✖️</button>
+      </header>
+      <p class="sheet-intro">All feelings belong to a zone, and <strong>every zone is okay</strong>. Knowing your zone helps you pick the right tool.</p>
+      <div id="learn-grid" class="learn-grid"></div>
+    </div>
+  </section>
+
+  <!-- Journal -->
+  <section id="sheet-journal" class="sheet" hidden aria-label="Feelings journal">
+    <div class="sheet-card">
+      <header class="sheet-head">
+        <h2>📓 My Feelings Journal</h2>
+        <button class="icon-btn sheet-close" aria-label="Close">✖️</button>
+      </header>
+      <p class="sheet-intro">Riley remembers your check-ins <strong>only on this device</strong>. Nothing is sent anywhere.</p>
+      <div id="journal-list" class="journal-list"></div>
+      <button id="btn-clear-journal" class="danger-btn">🗑️ Clear my journal</button>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section id="sheet-settings" class="sheet" hidden aria-label="Settings">
+    <div class="sheet-card">
+      <header class="sheet-head">
+        <h2>⚙️ Settings</h2>
+        <button class="icon-btn sheet-close" aria-label="Close">✖️</button>
+      </header>
+      <label class="setting-row">
+        <span>🔊 Riley speaks out loud</span>
+        <input type="checkbox" id="setting-voice" checked>
+      </label>
+      <label class="setting-row">
+        <span>✨ Background animations</span>
+        <input type="checkbox" id="setting-motion" checked>
+      </label>
+      <div class="about">
+        <h3>About Riley</h3>
+        <p>Riley helps children notice, name and manage feelings using the
+          <a href="https://zonesofregulation.com" target="_blank" rel="noopener">Zones of Regulation</a> framework.
+          Riley is a practice buddy, not a therapist. If feelings stay big or heavy, talk to a trusted adult.</p>
+        <p>Works in any modern browser. On a VR headset (like Meta Quest), open this page in the headset’s browser and press “Enter VR” or “Enter AR”.</p>
+        <p class="privacy">🔒 Privacy: Riley runs entirely in your browser. No accounts, no API keys, no data leaves this device.</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="loading" class="loading" aria-hidden="true">
+    <div class="loading-heart">💗</div>
+    <p>Riley is on the way…</p>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
