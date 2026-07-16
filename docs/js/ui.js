@@ -9,13 +9,14 @@ export class UI {
    * @param {(zoneId: string) => void} opts.onLearnAsk
    * @param {(on: boolean) => void} opts.onVoiceToggle
    * @param {(on: boolean) => void} opts.onMotionToggle
+   * @param {(on: boolean) => void} opts.onBGMToggle
    * @param {(text: string) => void} opts.onFreeText
    * @param {(on: boolean) => void} opts.onAIToggle
    * @param {() => void} opts.onListenStart
    * @param {() => void} opts.onReplay
    * @param {import('./journal.js').Journal} opts.journal
    */
-  constructor({ onChoice, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, onReplay, journal }) {
+  constructor({ onChoice, onLearnAsk, onVoiceToggle, onMotionToggle, onBGMToggle, onFreeText, onAIToggle, onListenStart, onReplay, journal }) {
     this.onChoice = onChoice;
     this.onLearnAsk = onLearnAsk;
     this.journal = journal;
@@ -123,6 +124,10 @@ export class UI {
     const motionCheck = document.getElementById('setting-motion');
     motionCheck.addEventListener('change', () => onMotionToggle(motionCheck.checked));
 
+    // Background music toggle
+    this.bgmCheck = document.getElementById('setting-bgm');
+    this.bgmCheck.addEventListener('change', () => onBGMToggle(this.bgmCheck.checked));
+
     // AI free-chat toggle
     this.aiCheck = document.getElementById('setting-ai');
     this.aiCheck.addEventListener('change', () => {
@@ -195,6 +200,10 @@ export class UI {
 
   setChatVisible(on) {
     this.chatForm.hidden = !on;
+  }
+
+  setBGMChecked(on) {
+    this.bgmCheck.checked = on;
   }
 
   setZone(zoneId) {
