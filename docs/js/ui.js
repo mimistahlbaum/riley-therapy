@@ -8,6 +8,7 @@ export class UI {
    * @param {(id: string, label?: string) => void} opts.onChoice
    * @param {(zoneId: string) => void} opts.onLearnAsk
    * @param {(on: boolean) => void} opts.onVoiceToggle
+   * @param {(on: boolean) => void} opts.onMusicToggle
    * @param {(on: boolean) => void} opts.onMotionToggle
    * @param {(text: string) => void} opts.onFreeText
    * @param {(on: boolean) => void} opts.onAIToggle
@@ -15,7 +16,7 @@ export class UI {
    * @param {() => void} opts.onReplay
    * @param {import('./journal.js').Journal} opts.journal
    */
-  constructor({ onChoice, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, onReplay, journal }) {
+  constructor({ onChoice, onLearnAsk, onVoiceToggle, onMusicToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, onReplay, journal }) {
     this.onChoice = onChoice;
     this.onLearnAsk = onLearnAsk;
     this.journal = journal;
@@ -119,6 +120,10 @@ export class UI {
     );
     this.voiceCheck.addEventListener('change', () => setVoice(this.voiceCheck.checked));
 
+    // Background music toggle
+    this.musicCheck = document.getElementById('setting-music');
+    this.musicCheck.addEventListener('change', () => onMusicToggle(this.musicCheck.checked));
+
     // Motion toggle
     const motionCheck = document.getElementById('setting-motion');
     motionCheck.addEventListener('change', () => onMotionToggle(motionCheck.checked));
@@ -158,6 +163,10 @@ export class UI {
       btn.addEventListener('click', () => this.onChoice(choice.id, choice.label));
       this.choicesEl.appendChild(btn);
     });
+  }
+
+  setMusicChecked(on) {
+    this.musicCheck.checked = on;
   }
 
   setReplayVisible(on) {
