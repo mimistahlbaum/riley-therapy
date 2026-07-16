@@ -1,0 +1,17 @@
+{
+  "name": "Riley — Emotional Wellness Companion",
+  "short_name": "Riley",
+  "description": "A friendly companion who helps children notice and manage their feelings using the Zones of Regulation.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FFE9F0",
+  "theme_color": "#FFE9F0",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
