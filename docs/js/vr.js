@@ -25,7 +25,7 @@ export class VRPanel {
     this.mesh.visible = false;
 
     this.message = { text: '', choices: [] };
-    this.zoneCss = '#F26D8D';
+    this.zoneCss = '#F0716A';
     this.buttons = [];
     this.hoverIndex = -1;
   }
@@ -37,7 +37,7 @@ export class VRPanel {
   }
 
   setZoneColor(css) {
-    this.zoneCss = css || '#F26D8D';
+    this.zoneCss = css || '#F0716A';
     this.draw();
   }
 
@@ -129,10 +129,10 @@ export class VRPanel {
       if (by + bh > H - 40) return; // safety: never draw off-card
       const hovered = i === this.hoverIndex;
       this.roundRect(ctx, bx, by, bw, bh, 40);
-      ctx.fillStyle = hovered ? this.zoneCss : '#FFE9F0';
+      ctx.fillStyle = hovered ? this.zoneCss : '#FBEEE2';
       ctx.fill();
       ctx.lineWidth = 3;
-      ctx.strokeStyle = hovered ? this.zoneCss : '#F5C2D4';
+      ctx.strokeStyle = hovered ? this.zoneCss : '#EBD3BE';
       ctx.stroke();
       ctx.fillStyle = hovered ? '#ffffff' : '#4A3B44';
       ctx.font = '600 34px system-ui, sans-serif';
@@ -247,7 +247,7 @@ export class XRManager {
       controller.add(ray);
       const tip = new THREE.Mesh(
         new THREE.SphereGeometry(0.012, 12, 8),
-        new THREE.MeshBasicMaterial({ color: 0xff8fb3 }),
+        new THREE.MeshBasicMaterial({ color: 0xf0716a }),
       );
       controller.add(tip);
       controller.addEventListener('selectstart', () => this.handleSelect(controller));
@@ -257,7 +257,7 @@ export class XRManager {
       const grip = this.world.renderer.xr.getControllerGrip(i);
       const handle = new THREE.Mesh(
         new THREE.SphereGeometry(0.03, 14, 10),
-        new THREE.MeshStandardMaterial({ color: 0xf9a8c4, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0xf3ede6, roughness: 0.5 }),
       );
       grip.add(handle);
       this.world.scene.add(grip);

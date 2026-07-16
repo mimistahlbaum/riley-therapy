@@ -75,6 +75,15 @@ export class Dialogue {
     this.feeling = null;
     this.onZone(null);
     this.onGesture('wave');
+    // With free chat available, Riley works out the feeling from the
+    // conversation itself (like the original narrative design). The list
+    // stays one tap away for children who prefer it and for VR.
+    if (this.freeChat?.()) {
+      this.emit(`${pick(GREETINGS)} How are you feeling right now?`, [
+        { id: 'show-feelings', label: '🙂 Pick from a list instead' },
+      ]);
+      return;
+    }
     this.emit(`${pick(GREETINGS)} How are you feeling right now?`, this.feelingChoices());
   }
 
@@ -94,6 +103,9 @@ export class Dialogue {
     if (id.startsWith('feeling:')) return this.handleFeeling(id.slice(8));
 
     switch (id) {
+      case 'show-feelings':
+        this.state = 'greeting';
+        return this.emit('Of course! Which of these feels closest right now?', this.feelingChoices());
       case 'unsure':
         return this.handleUnsure();
       case 'accept-activity':

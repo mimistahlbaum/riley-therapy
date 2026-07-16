@@ -4,8 +4,8 @@
   "description": "A friendly companion who helps children notice and manage their feelings using the Zones of Regulation.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#FFE9F0",
-  "theme_color": "#FFE9F0",
+  "background_color": "#F4E9DA",
+  "theme_color": "#F4E9DA",
   "icons": [
     {
       "src": "favicon.svg",

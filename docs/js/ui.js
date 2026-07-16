@@ -10,9 +10,12 @@ export class UI {
    * @param {(zoneId: string) => void} opts.onLearnAsk
    * @param {(on: boolean) => void} opts.onVoiceToggle
    * @param {(on: boolean) => void} opts.onMotionToggle
+   * @param {(text: string) => void} opts.onFreeText
+   * @param {(on: boolean) => void} opts.onAIToggle
+   * @param {() => void} opts.onListenStart
    * @param {import('./journal.js').Journal} opts.journal
    */
-  constructor({ onChoice, onToolboxPick, onLearnAsk, onVoiceToggle, onMotionToggle, journal }) {
+  constructor({ onChoice, onToolboxPick, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, journal }) {
     this.onChoice = onChoice;
     this.onToolboxPick = onToolboxPick;
     this.onLearnAsk = onLearnAsk;
@@ -21,6 +24,48 @@ export class UI {
     this.rileyText = document.getElementById('riley-text');
     this.choicesEl = document.getElementById('choices');
     this.chatEl = document.getElementById('chat');
+
+    // Free-text chat with Riley (AI)
+    this.chatForm = document.getElementById('chat-form');
+    this.chatInput = document.getElementById('chat-input');
+    this.chatSend = this.chatForm.querySelector('.chat-send');
+    this.chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = this.chatInput.value.trim();
+      if (!text || this.chatInput.disabled) return;
+      this.chatInput.value = '';
+      onFreeText(text);
+    });
+
+    // Voice input: speak to Riley instead of typing, where the browser
+    // supports speech recognition (Chrome, Edge, Safari, Android).
+    this.micBtn = document.getElementById('btn-mic');
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      this.micBtn.hidden = false;
+      this.listening = false;
+      this.recognition = new SR();
+      this.recognition.lang = 'en-US';
+      this.recognition.interimResults = false;
+      this.recognition.maxAlternatives = 1;
+      this.recognition.onresult = (e) => {
+        const text = e.results[0]?.[0]?.transcript?.trim();
+        if (text && !this.chatInput.disabled) onFreeText(text);
+      };
+      this.recognition.onend = () => this.setListening(false);
+      this.recognition.onerror = () => this.setListening(false);
+      this.micBtn.addEventListener('click', () => {
+        if (this.listening) {
+          this.recognition.stop();
+          return;
+        }
+        onListenStart?.(); // hush Riley so the mic doesn't hear the app
+        try {
+          this.recognition.start();
+          this.setListening(true);
+        } catch { /* already started or mic unavailable */ }
+      });
+    }
 
     this.sheets = {
       toolbox: document.getElementById('sheet-toolbox'),
@@ -67,6 +112,13 @@ export class UI {
     const motionCheck = document.getElementById('setting-motion');
     motionCheck.addEventListener('change', () => onMotionToggle(motionCheck.checked));
 
+    // AI free-chat toggle
+    this.aiCheck = document.getElementById('setting-ai');
+    this.aiCheck.addEventListener('change', () => {
+      this.setAIVisible(this.aiCheck.checked);
+      onAIToggle(this.aiCheck.checked);
+    });
+
     // Settings button
     document.getElementById('btn-settings').addEventListener('click', () => {
       this.closeSheets();
@@ -97,11 +149,32 @@ export class UI {
     });
   }
 
+  setListening(on) {
+    this.listening = on;
+    this.micBtn.classList.toggle('is-listening', on);
+    this.micBtn.setAttribute('aria-pressed', String(on));
+    this.chatInput.placeholder = on ? 'Listening… speak to Riley' : 'Tell Riley how you feel…';
+  }
+
+  // While Riley is thinking of an AI reply the input is locked so the
+  // child can't queue up several messages at once.
+  setThinking(on) {
+    this.chatInput.disabled = on;
+    this.chatSend.disabled = on;
+    this.micBtn.disabled = on;
+    if (on) this.showMessage({ text: '💭 Hmm, let me think…', choices: [] });
+  }
+
+  setAIVisible(on) {
+    this.chatForm.hidden = !on;
+    this.aiCheck.checked = on;
+  }
+
   setZone(zoneId) {
     const zone = zoneId ? ZONES[zoneId] : null;
     const root = document.documentElement;
-    root.style.setProperty('--zone', zone ? zone.css : '#F26D8D');
-    root.style.setProperty('--zone-soft', zone ? zone.cssSoft : '#FFE9F0');
+    root.style.setProperty('--zone', zone ? zone.css : '#F0716A');
+    root.style.setProperty('--zone-soft', zone ? zone.cssSoft : '#FBE4DE');
     document.getElementById('brand-heart').textContent = zone ? zone.emoji : '💗';
   }
 

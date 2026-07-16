@@ -9,17 +9,22 @@ import { Journal } from './journal.js';
 import { Speech } from './speech.js';
 import { UI } from './ui.js';
 import { XRManager } from './vr.js';
-import { ZONES } from './zones.js';
+import { ZONES, ACTIVITIES } from './zones.js';
+import { RileyAI, looksLikeCrisis } from './ai.js';
 
 const canvas = document.getElementById('scene');
 const world = new World(canvas);
 
 const riley = new Riley();
+riley.group.scale.setScalar(1.15);
 world.scene.add(riley.group);
 world.onUpdate((dt, time) => riley.update(dt, time));
 
 const journal = new Journal();
 const speech = new Speech();
+// Riley's little mouth moves while the voice is playing.
+speech.onstart = () => riley.setTalking(true);
+speech.onend = () => riley.setTalking(false);
 
 let ui; // assigned below; dialogue callbacks fire only after start()
 
@@ -32,7 +37,9 @@ const dialogue = new Dialogue({
   },
   onZone: (zoneId) => {
     const zone = zoneId ? ZONES[zoneId] : null;
-    riley.setZoneColor(zone ? zone.color : 0x34c759);
+    // Riley's chest heart takes on the colour of the chosen zone,
+    // and rests as warm coral between check-ins.
+    riley.setZoneColor(zone ? zone.color : 0xf0716a);
     ui.setZone(zoneId);
     xr.panel.setZoneColor(zone ? zone.css : null);
   },
@@ -40,9 +47,79 @@ const dialogue = new Dialogue({
   onGesture: (gesture) => riley.setGesture(gesture),
 });
 
+// ---- AI free chat ------------------------------------------------------
+
+const ai = new RileyAI();
+let aiEnabled = true;
+try {
+  aiEnabled = localStorage.getItem('riley-ai-enabled') !== 'false';
+} catch { /* storage unavailable: keep default */ }
+
+// With free chat available, the check-in starts as open conversation
+// (the original narrative design) instead of a feeling picker.
+dialogue.freeChat = () => aiEnabled && ai.available;
+
+// Choice ids beginning with "ai:" are tappable suggestions from the AI;
+// everything else belongs to the scripted dialogue.
+function routeChoice(id) {
+  if (id.startsWith('ai:')) return handleFreeText(id.slice(3));
+  return dialogue.choose(id);
+}
+
+async function handleFreeText(text) {
+  if (!aiEnabled) return;
+  dialogue.clearTimers();
+  dialogue.activity = null;
+  dialogue.state = 'ai';
+
+  // Safety first: these messages never go to the AI. The app answers
+  // itself and points the child to a trusted adult.
+  if (looksLikeCrisis(text)) {
+    dialogue.emit(
+      'Thank you for trusting me with something so important. This is too big for us to carry alone — please tell a trusted grown-up right away: a parent, carer or teacher. You deserve help and care, always. 💗',
+      [
+        { id: 'activity:talk', label: '💬 Practise telling someone' },
+        { id: 'restart', label: '↩️ Check in with Riley' },
+      ],
+    );
+    return;
+  }
+
+  ui.setThinking(true);
+  const res = await ai.chat(text, dialogue.zoneId);
+  ui.setThinking(false);
+
+  if (!res) {
+    dialogue.emit(
+      'Oh! My thinking cloud drifted away for a moment. Let’s use the buttons together instead. 💗',
+      [{ id: 'restart', label: '💬 Check in with Riley' }],
+    );
+    return;
+  }
+
+  if (res.zone) {
+    // A zone worked out in conversation counts as a check-in: journal it
+    // (once per zone change) and let the heart take the zone colour.
+    if (res.zone !== dialogue.zoneId) {
+      journal.add({ zone: res.zone, feeling: res.feeling || null });
+    }
+    dialogue.setZone(res.zone);
+  }
+  riley.setGesture('nod');
+
+  const choices = [];
+  if (res.activity) {
+    const a = ACTIVITIES[res.activity];
+    choices.push({ id: `activity:${a.id}`, label: `${a.emoji} Try ${a.name.toLowerCase()}` });
+  }
+  for (const s of res.suggestions) choices.push({ id: `ai:${s}`, label: s });
+  choices.push({ id: 'restart', label: '💬 Check in' });
+  dialogue.emit(res.reply, choices);
+}
+
 ui = new UI({
   journal,
-  onChoice: (id) => dialogue.choose(id),
+  onChoice: routeChoice,
   onToolboxPick: (activityId) => dialogue.startActivity(activityId, { fromToolbox: true }),
   onLearnAsk: (zoneId) => {
     const zone = ZONES[zoneId];
@@ -55,11 +132,19 @@ ui = new UI({
     ]);
   },
   onVoiceToggle: (on) => speech.setEnabled(on),
-  onMotionToggle: (on) => {
-    world.sparkles.visible = on;
-    for (const cloud of world.clouds) cloud.visible = on;
+  onMotionToggle: (on) => world.setMotion(on),
+  onFreeText: handleFreeText,
+  onListenStart: () => speech.stop(),
+  onAIToggle: (on) => {
+    aiEnabled = on;
+    try {
+      localStorage.setItem('riley-ai-enabled', String(on));
+    } catch { /* storage unavailable */ }
+    // Refresh the greeting so it matches the new mode straight away.
+    if (dialogue.state === 'greeting') dialogue.start();
   },
 });
+ui.setAIVisible(aiEnabled);
 
 // ---- WebXR -----------------------------------------------------------
 
@@ -67,7 +152,7 @@ const rileyHome = new THREE.Vector3(0, 0, 0);
 const rileyXR = new THREE.Vector3(-0.35, 0, -1.35);
 
 const xr = new XRManager(world, {
-  onChoice: (id) => dialogue.choose(id),
+  onChoice: routeChoice,
   onSessionChange: (active) => {
     if (active) {
       riley.group.position.copy(rileyXR);
@@ -104,7 +189,7 @@ window.addEventListener(
   () => {
     if (!resumed) {
       resumed = true;
-      if (speech.available && speech.enabled && !window.speechSynthesis.speaking) {
+      if (speech.available && speech.enabled && !speech.isSpeaking()) {
         speech.speak(document.getElementById('riley-text').textContent);
       }
     }

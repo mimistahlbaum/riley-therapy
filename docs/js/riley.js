@@ -1,13 +1,13 @@
 // Riley: a procedurally built, fully animated 3D character.
-// The 2025 demo used a static, unrigged model; this version animates
-// blinking, bobbing, waving, nodding, celebrating and guided breathing,
-// with a glowing chest heart that changes colour with the child's zone.
+// A soft, matte-white rounded mascot: egg-shaped body, tiny stub arms,
+// button eyes, an open friendly mouth and a puffy heart on its chest.
+// The heart glows with the colour of the child's current zone; it blinks,
+// bobs, waves, nods, celebrates, talks and guides breathing.
 
 import * as THREE from 'three';
 
-const BODY_PINK = 0xf9a8c4;
-const BODY_PINK_DARK = 0xf07ca6;
-const CREAM = 0xfff3e8;
+const BODY_WHITE = 0xf7f4f0;
+const HEART_CORAL = 0xf0716a;
 
 function heartGeometry(size = 1) {
   const s = size;
@@ -16,28 +16,61 @@ function heartGeometry(size = 1) {
   shape.bezierCurveTo(0.7 * s, 0.1 * s, 0.45 * s, 0.65 * s, 0, 0.3 * s);
   shape.bezierCurveTo(-0.45 * s, 0.65 * s, -0.7 * s, 0.1 * s, 0, -0.55 * s);
   const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: 0.18 * s,
+    depth: 0.22 * s,
     bevelEnabled: true,
-    bevelThickness: 0.04 * s,
-    bevelSize: 0.05 * s,
-    bevelSegments: 3,
+    bevelThickness: 0.08 * s,
+    bevelSize: 0.09 * s,
+    bevelSegments: 5,
     curveSegments: 24,
   });
   geo.center();
   return geo;
 }
 
+// Egg/pear profile for the body: plump around the bottom but with a
+// softly rounded dome on top (no teardrop point). The fattening factor
+// only really applies below the widest point and fades out above it.
+function profileRadius(a, radius) {
+  const c = Math.cos(a);
+  const k = c > 0 ? 0.08 + 0.2 * c : 0.08;
+  return Math.sin(a) * radius * (1 + k * c);
+}
+
+function bodyGeometry(height = 0.95, radius = 0.4) {
+  const points = [];
+  const segments = 28;
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * Math.PI;
+    const y = ((1 - Math.cos(a)) / 2) * height;
+    points.push(new THREE.Vector2(Math.max(profileRadius(a, radius), 0.0001), y));
+  }
+  return new THREE.LatheGeometry(points, 48);
+}
+
+// Radius of the body profile at a given height, for placing face features
+// flush against the surface.
+function bodyRadiusAt(y, height = 0.95, radius = 0.4) {
+  const c = Math.min(1, Math.max(-1, 1 - (2 * y) / height));
+  return profileRadius(Math.acos(c), radius);
+}
+
 export class Riley {
   constructor() {
     this.group = new THREE.Group();
-    this.zoneColor = new THREE.Color(0x34c759);
-    this.targetZoneColor = new THREE.Color(0x34c759);
+    this.zoneColor = new THREE.Color(HEART_CORAL);
+    this.targetZoneColor = new THREE.Color(HEART_CORAL);
 
     this.gesture = null;
     this.gestureT = 0;
     this.blinkT = 0;
     this.nextBlink = 2 + Math.random() * 3;
     this.breath = { phase: null, seconds: 0, t: 0, value: 0 };
+    this.talking = false;
+
+    // Everything except the balloon and shadow lives on `core`, so leaning
+    // and nodding move the whole soft body as one piece.
+    this.core = new THREE.Group();
+    this.group.add(this.core);
 
     this.buildBody();
     this.buildFace();
@@ -47,116 +80,101 @@ export class Riley {
   }
 
   buildBody() {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: BODY_PINK, roughness: 0.65 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: BODY_PINK_DARK, roughness: 0.65 });
-    const creamMat = new THREE.MeshStandardMaterial({ color: CREAM, roughness: 0.8 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: BODY_WHITE, roughness: 0.6 });
 
-    this.body = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 24), bodyMat);
-    this.body.scale.set(1, 1.12, 0.92);
-    this.body.position.y = 0.42;
-    this.group.add(this.body);
+    this.body = new THREE.Mesh(bodyGeometry(), bodyMat);
+    this.core.add(this.body);
 
-    // Tummy patch
-    const tummy = new THREE.Mesh(new THREE.SphereGeometry(0.26, 32, 24), creamMat);
-    tummy.scale.set(0.82, 0.95, 0.45);
-    tummy.position.set(0, 0.4, 0.15);
-    this.group.add(tummy);
-
-    // Head
-    this.head = new THREE.Group();
-    this.head.position.y = 0.95;
-    this.group.add(this.head);
-
-    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.3, 32, 24), bodyMat);
-    skull.scale.set(1.05, 0.95, 0.95);
-    this.head.add(skull);
-
-    // Round ears
-    for (const side of [-1, 1]) {
-      const ear = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 18), bodyMat);
-      ear.position.set(0.22 * side, 0.24, 0);
-      this.head.add(ear);
-      const inner = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), darkMat);
-      inner.position.set(0.22 * side, 0.24, 0.07);
-      this.head.add(inner);
-    }
-
-    // Arms (pivoted at the shoulder so they can wave)
+    // Tiny stub arms, pivoted at the shoulder so they can wave.
     this.arms = [];
+    this.armRest = [];
     for (const side of [-1, 1]) {
       const pivot = new THREE.Group();
-      pivot.position.set(0.3 * side, 0.55, 0);
-      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.16, 6, 14), bodyMat);
-      arm.position.y = -0.13;
+      const shoulderR = bodyRadiusAt(0.48);
+      pivot.position.set((shoulderR - 0.04) * side, 0.48, 0);
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.09, 6, 14), bodyMat);
+      arm.position.y = -0.08;
       pivot.add(arm);
-      pivot.rotation.z = side * 0.5;
-      this.group.add(pivot);
+      const rest = side * 2.0; // little wings pointing gently out and up
+      pivot.rotation.z = rest;
+      this.core.add(pivot);
       this.arms.push(pivot);
+      this.armRest.push(rest);
     }
 
-    // Feet
+    // Short stub feet peeking out under the body.
     for (const side of [-1, 1]) {
-      const foot = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 14), darkMat);
-      foot.scale.set(1, 0.7, 1.2);
-      foot.position.set(0.16 * side, 0.07, 0.06);
-      this.group.add(foot);
+      const foot = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.05, 6, 12), bodyMat);
+      foot.position.set(0.14 * side, 0.04, 0.09);
+      this.core.add(foot);
     }
   }
 
   buildFace() {
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x33262e, roughness: 0.35 });
-    const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const cheekMat = new THREE.MeshStandardMaterial({ color: 0xff8fb3, roughness: 0.9 });
-
+    // Tiny black dot eyes, warawara-style.
+    const dotMat = new THREE.MeshStandardMaterial({ color: 0x2f2a26, roughness: 0.4 });
     this.eyes = [];
+    const eyeY = 0.66;
+    const eyeR = bodyRadiusAt(eyeY);
     for (const side of [-1, 1]) {
       const eye = new THREE.Group();
-      eye.position.set(0.11 * side, 0.03, 0.27);
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.05, 18, 14), eyeMat);
-      ball.scale.z = 0.6;
-      eye.add(ball);
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8), glintMat);
-      glint.position.set(0.015, 0.02, 0.035);
-      eye.add(glint);
-      this.head.add(eye);
+      const x = 0.115 * side;
+      eye.position.set(x, eyeY, Math.sqrt(Math.max(0.0001, eyeR * eyeR - x * x)) - 0.005);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.026, 16, 12), dotMat);
+      dot.scale.z = 0.55;
+      eye.add(dot);
+      this.core.add(eye);
       this.eyes.push(eye);
     }
 
-    for (const side of [-1, 1]) {
-      const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 10), cheekMat);
-      cheek.scale.z = 0.35;
-      cheek.position.set(0.19 * side, -0.06, 0.245);
-      this.head.add(cheek);
-    }
-
-    // Smile: a thin curved tube
-    const smileCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-0.06, -0.05, 0.285),
-      new THREE.Vector3(0, -0.095, 0.295),
-      new THREE.Vector3(0.06, -0.05, 0.285),
-    ]);
+    // Mouth: a red half-circle smile — flat on top, gently bulging below.
+    const r = 0.068;
+    const smileShape = new THREE.Shape();
+    smileShape.moveTo(-r, 0);
+    smileShape.lineTo(r, 0);
+    smileShape.absarc(0, 0, r, 0, Math.PI, true);
+    const smileGeo = new THREE.ExtrudeGeometry(smileShape, {
+      depth: 0.012,
+      bevelEnabled: true,
+      bevelThickness: 0.008,
+      bevelSize: 0.008,
+      bevelSegments: 3,
+      curveSegments: 24,
+    });
+    const mouthY = 0.53;
+    const mouthZ = bodyRadiusAt(mouthY);
+    this.mouth = new THREE.Group();
+    this.mouth.position.set(0, mouthY, mouthZ - 0.008);
+    this.mouth.rotation.x = -0.12; // follow the face's curve
     const smile = new THREE.Mesh(
-      new THREE.TubeGeometry(smileCurve, 12, 0.011, 8),
-      new THREE.MeshStandardMaterial({ color: 0x33262e, roughness: 0.5 }),
+      smileGeo,
+      new THREE.MeshStandardMaterial({ color: 0xc94f44, roughness: 0.55 }),
     );
-    this.head.add(smile);
+    smile.scale.x = 1.25; // a touch wider than tall, like a happy grin
+    this.mouth.add(smile);
+    this.core.add(this.mouth);
   }
 
   buildHeart() {
     this.heartMat = new THREE.MeshStandardMaterial({
-      color: 0x34c759,
-      emissive: 0x34c759,
-      emissiveIntensity: 0.55,
-      roughness: 0.35,
+      color: HEART_CORAL,
+      emissive: HEART_CORAL,
+      emissiveIntensity: 0.3,
+      roughness: 0.4,
     });
-    this.heart = new THREE.Mesh(heartGeometry(0.14), this.heartMat);
-    this.heart.position.set(0, 0.47, 0.29);
-    this.group.add(this.heart);
+    this.heart = new THREE.Mesh(heartGeometry(0.13), this.heartMat);
+    // Low on the tummy, a little off to the side, snuggled onto the surface.
+    const heartY = 0.34;
+    const r = bodyRadiusAt(heartY);
+    const x = 0.15;
+    this.heart.position.set(x, heartY, Math.sqrt(Math.max(0.0001, r * r - x * x)) - 0.015);
+    this.heart.rotation.set(0.3, 0.34, -0.08);
+    this.core.add(this.heart);
 
-    this.heartLight = new THREE.PointLight(0x34c759, 0.6, 1.6);
+    this.heartLight = new THREE.PointLight(HEART_CORAL, 0.35, 0.65);
     this.heartLight.position.copy(this.heart.position);
     this.heartLight.position.z += 0.15;
-    this.group.add(this.heartLight);
+    this.core.add(this.heartLight);
   }
 
   buildBalloon() {
@@ -195,13 +213,13 @@ export class Riley {
     canvas.width = canvas.height = 128;
     const ctx = canvas.getContext('2d');
     const grad = ctx.createRadialGradient(64, 64, 8, 64, 64, 62);
-    grad.addColorStop(0, 'rgba(60, 40, 60, 0.35)');
-    grad.addColorStop(1, 'rgba(60, 40, 60, 0)');
+    grad.addColorStop(0, 'rgba(70, 52, 38, 0.32)');
+    grad.addColorStop(1, 'rgba(70, 52, 38, 0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 128, 128);
     const tex = new THREE.CanvasTexture(canvas);
     const shadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.9, 0.9),
+      new THREE.PlaneGeometry(0.95, 0.95),
       new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
     );
     shadow.rotation.x = -Math.PI / 2;
@@ -227,11 +245,19 @@ export class Riley {
     this.balloon.visible = true;
   }
 
+  setTalking(on) {
+    this.talking = on;
+  }
+
   update(dt, time) {
     // Idle bob and sway
     this.group.position.y = Math.sin(time * 1.6) * 0.018;
     this.group.rotation.y = Math.sin(time * 0.45) * 0.06;
-    this.head.rotation.z = Math.sin(time * 0.9) * 0.04;
+    this.core.rotation.z = Math.sin(time * 0.9) * 0.03;
+
+    // Gentle breathing squash of the whole body
+    const puff = 1 + Math.sin(time * 1.6) * 0.01;
+    this.body.scale.set(puff, 1 / puff, puff);
 
     // Blinking
     this.blinkT += dt;
@@ -242,6 +268,10 @@ export class Riley {
     const blinkPhase = this.blinkT < 0.14 ? Math.sin((this.blinkT / 0.14) * Math.PI) : 0;
     for (const eye of this.eyes) eye.scale.y = 1 - blinkPhase * 0.92;
 
+    // Talking: the little mouth opens and closes with the voice.
+    const mouthTarget = this.talking ? 0.8 + Math.abs(Math.sin(time * 9)) * 0.55 : 1;
+    this.mouth.scale.y += (mouthTarget - this.mouth.scale.y) * Math.min(1, dt * 14);
+
     // Heart colour easing + gentle pulse
     this.zoneColor.lerp(this.targetZoneColor, Math.min(1, dt * 3));
     this.heartMat.color.copy(this.zoneColor);
@@ -249,7 +279,7 @@ export class Riley {
     this.heartLight.color.copy(this.zoneColor);
     const pulse = 1 + Math.sin(time * 2.4) * 0.05;
     this.heart.scale.setScalar(pulse);
-    this.heartLight.intensity = 0.5 + Math.sin(time * 2.4) * 0.15;
+    this.heartLight.intensity = 0.3 + Math.sin(time * 2.4) * 0.1;
 
     this.updateGesture(dt);
     this.updateBreath(dt, time);
@@ -257,27 +287,27 @@ export class Riley {
 
   updateGesture(dt) {
     if (!this.gesture) {
-      // Ease arms back to resting pose
+      // Ease arms and body back to resting pose
       for (let i = 0; i < 2; i++) {
-        const rest = (i === 0 ? -1 : 1) * 0.5;
-        this.arms[i].rotation.z += (rest - this.arms[i].rotation.z) * Math.min(1, dt * 6);
+        this.arms[i].rotation.z += (this.armRest[i] - this.arms[i].rotation.z) * Math.min(1, dt * 6);
         this.arms[i].rotation.x += (0 - this.arms[i].rotation.x) * Math.min(1, dt * 6);
       }
-      this.head.rotation.x += (0 - this.head.rotation.x) * Math.min(1, dt * 6);
+      this.core.rotation.x += (0 - this.core.rotation.x) * Math.min(1, dt * 6);
       return;
     }
     this.gestureT += dt;
     const t = this.gestureT;
     if (this.gesture === 'wave') {
-      // Right arm raised and waving
-      this.arms[1].rotation.z = -2.2 + Math.sin(t * 9) * 0.35;
+      // Right stub raised high and waving
+      this.arms[1].rotation.z = 2.7 + Math.sin(t * 9) * 0.3;
       if (t > 1.8) this.gesture = null;
     } else if (this.gesture === 'nod') {
-      this.head.rotation.x = Math.sin(t * 5) * 0.22 * Math.max(0, 1 - t / 1.2);
+      // Whole-body bow, like an eager little nod
+      this.core.rotation.x = Math.sin(t * 5) * 0.14 * Math.max(0, 1 - t / 1.2);
       if (t > 1.2) this.gesture = null;
     } else if (this.gesture === 'celebrate') {
-      this.arms[0].rotation.z = 2.4 + Math.sin(t * 10) * 0.2;
-      this.arms[1].rotation.z = -2.4 - Math.sin(t * 10) * 0.2;
+      this.arms[0].rotation.z = -2.7 + Math.sin(t * 10) * 0.2;
+      this.arms[1].rotation.z = 2.7 - Math.sin(t * 10) * 0.2;
       this.group.position.y += Math.abs(Math.sin(t * 6)) * 0.06 * Math.max(0, 1 - t / 1.6);
       if (t > 1.6) this.gesture = null;
     }
