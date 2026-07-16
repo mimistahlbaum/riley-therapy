@@ -66,14 +66,14 @@ dialogue.freeChat = () => aiEnabled && ai.available;
 // everything else belongs to the scripted dialogue.
 function routeChoice(id, label) {
   if (id.startsWith('ai:')) return handleFreeText(id.slice(3));
-  if (id === 'show-toolbox') ui?.setActiveTab('toolbox');
-  else if (id === 'restart') ui?.setActiveTab('checkin');
   if (label) ai.note('user', label);
   return dialogue.choose(id);
 }
 
 async function handleFreeText(text) {
-  if (!aiEnabled) return;
+  // A leftover AI suggestion tapped after free chat was switched off:
+  // restart the scripted check-in rather than doing nothing.
+  if (!aiEnabled) return dialogue.start();
   dialogue.clearTimers();
   dialogue.activity = null;
   dialogue.state = 'ai';
@@ -96,12 +96,18 @@ async function handleFreeText(text) {
   ui.setThinking(false);
 
   if (!res) {
+    // The AI couldn't answer: carry straight on with the scripted feeling
+    // list so the child never lands in a dead end. While the service is
+    // down the text input hides too; it comes back when the AI recovers.
+    ui.setChatVisible(aiEnabled && ai.available);
+    dialogue.state = 'greeting';
     dialogue.emit(
-      'Oh! My thinking cloud drifted away for a moment. Let’s use the buttons together instead. 💗',
-      [{ id: 'restart', label: '💬 Check in with Riley' }],
+      'Oh! My thinking cloud drifted away for a moment. Let’s use the buttons instead — which of these feels closest? 💗',
+      dialogue.feelingChoices(),
     );
     return;
   }
+  ui.setChatVisible(true);
 
   if (res.zone) {
     // A zone worked out in conversation counts as a check-in: journal it
@@ -126,7 +132,6 @@ async function handleFreeText(text) {
 ui = new UI({
   journal,
   onChoice: routeChoice,
-  onToolboxOpen: () => dialogue.openToolbox(),
   onLearnAsk: (zoneId) => {
     const zone = ZONES[zoneId];
     dialogue.clearTimers();
@@ -146,8 +151,10 @@ ui = new UI({
     try {
       localStorage.setItem('riley-ai-enabled', String(on));
     } catch { /* storage unavailable */ }
-    // Refresh the greeting so it matches the new mode straight away.
-    if (dialogue.state === 'greeting') dialogue.start();
+    ui.setChatVisible(on && ai.available);
+    // Refresh the conversation so no stale AI suggestion chips linger and
+    // the greeting matches the new mode straight away.
+    if (dialogue.state === 'greeting' || dialogue.state === 'ai') dialogue.start();
   },
 });
 ui.setAIVisible(aiEnabled);

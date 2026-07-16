@@ -87,38 +87,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   24% { transform: scale(1); }
 }
 
-.tabs {
-  display: flex;
-  gap: 6px;
-  background: var(--card);
-  border-radius: 999px;
-  padding: 6px;
-  box-shadow: var(--shadow);
-  overflow-x: auto;
-  scrollbar-width: none;
-  max-width: min(62vw, 560px);
-}
-
-.tabs::-webkit-scrollbar { display: none; }
-
-.tab {
-  border-radius: 999px;
-  padding: 9px 15px;
-  background: transparent;
-  color: var(--ink-soft);
-  font-weight: 700;
-  font-size: 0.95rem;
-  white-space: nowrap;
-  transition: background 0.2s, color 0.2s, transform 0.15s;
-}
-
-.tab:hover { transform: translateY(-1px); color: var(--ink); }
-
-.tab.is-active {
-  background: var(--zone);
-  color: #fff;
-}
-
 .top-actions {
   margin-left: auto;
   display: flex;
@@ -468,6 +436,22 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 /* Settings */
 
+.setting-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--zone-soft);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 1.02rem;
+  border-radius: var(--radius-m);
+  padding: 13px 16px;
+  margin-bottom: 8px;
+  transition: transform 0.15s;
+}
+
+.setting-link:hover { transform: scale(1.02); }
+
 .setting-row {
   display: flex;
   align-items: center;
@@ -538,10 +522,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 /* ---- Small screens ---------------------------------------------------- */
 
 @media (max-width: 720px) {
-  .topbar { flex-wrap: wrap; }
-  .brand { order: 1; }
-  .top-actions { order: 2; }
-  .tabs { order: 3; max-width: 100%; width: 100%; }
   .chat { bottom: calc(10px + env(safe-area-inset-bottom)); }
   #riley-text { font-size: 1.02rem; }
   .choices { max-height: 26vh; }
