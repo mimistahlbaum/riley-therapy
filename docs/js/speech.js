@@ -13,9 +13,15 @@
 //    into an <audio> element, so no CORS setup is needed on the server.
 // 2. Microsoft Edge's neural voices (the same online voices Edge uses
 //    for Read Aloud), spoken with "Ana" — a warm, natural child voice,
-//    synthesised over the Edge Read Aloud websocket endpoint.
+//    synthesised over the Edge Read Aloud websocket endpoint. This one
+//    plays through the shared WebAudio context: once that context is
+//    unlocked by the first tap it stays unlocked, so playback can't be
+//    swallowed by the autoplay policy mid-session (which used to leave
+//    the replay button silent).
 // 3. The browser's built-in speech synthesis, as the last resort, so
 //    the app keeps working everywhere, including the Quest browser.
+
+import { getAudioContext, resumeAudio } from './audio.js';
 
 const ZUNDAMON_BASE = 'http://127.0.0.1:9880';
 // Synthesis on a slow machine can take a while, but a hung request must
@@ -66,7 +72,8 @@ export class Speech {
     // UI can invite the child to tap the replay button.
     this.onblocked = null;
 
-    this.currentAudio = null;
+    this.currentSource = null; // AudioBufferSourceNode while the Edge voice plays
+    this.currentAudio = null; // <audio> element while the Zundamon voice plays
     this.currentWs = null;
     this.requestSeq = 0;
     this.edgeFailures = 0;
@@ -75,7 +82,7 @@ export class Speech {
     try {
       this.zundamonBase = localStorage.getItem('riley-zundamon-url') || this.zundamonBase;
     } catch { /* storage unavailable: keep default */ }
-    this.cache = new Map(); // cleaned text -> audio Blob
+    this.cache = new Map(); // cleaned text -> decoded AudioBuffer
     this.lastText = null; // last message asked to be spoken (cleaned)
     this.pendingText = null; // blocked by autoplay policy, waiting for a gesture
 
@@ -86,9 +93,11 @@ export class Speech {
       this.pickFallbackVoice();
       window.speechSynthesis.onvoiceschanged = () => this.pickFallbackVoice();
     }
+    this.edgeAvailable =
+      typeof WebSocket !== 'undefined' && 'subtle' in (crypto || {}) && !!getAudioContext();
     this.available =
       typeof Audio !== 'undefined' || // Zundamon server playback
-      (typeof WebSocket !== 'undefined' && 'subtle' in (crypto || {})) ||
+      this.edgeAvailable ||
       this.synthAvailable;
   }
 
@@ -115,7 +124,9 @@ export class Speech {
         try { ws.close(); } catch { /* already closed */ }
         reject(err);
       };
-      const timeout = setTimeout(() => fail(new Error('Edge TTS timed out')), 6000);
+      // Keep this short: while it runs the child hears nothing, and the
+      // fallback voice is waiting right behind it.
+      const timeout = setTimeout(() => fail(new Error('Edge TTS timed out')), 4000);
 
       ws.onopen = () => {
         const timestamp = new Date().toString();
@@ -177,13 +188,44 @@ export class Speech {
     });
   }
 
-  // Plays a blob object URL or a remote TTS URL. With timeoutMs set, a
-  // server that neither answers nor errors gives up instead of hanging.
-  async playAudio(src, seq, { revoke = false, timeoutMs = 0 } = {}) {
+  // Decoding works even while the context is still locked, so lines can be
+  // prepared before the first tap and play instantly afterwards.
+  async decode(blob) {
+    const ctx = getAudioContext();
+    const data = await blob.arrayBuffer();
+    return new Promise((resolve, reject) => {
+      const result = ctx.decodeAudioData(data, resolve, reject);
+      if (result?.then) result.then(resolve, reject);
+    });
+  }
+
+  async playBuffer(buffer, seq) {
+    const ctx = await resumeAudio();
+    if (ctx.state !== 'running') {
+      // Still locked: the browser wants a user gesture first.
+      const err = new Error('Audio blocked until a user gesture');
+      err.name = 'NotAllowedError';
+      throw err;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    this.currentSource = source;
+    source.onended = () => {
+      if (this.currentSource === source) this.currentSource = null;
+      if (seq === this.requestSeq) this.onend?.();
+    };
+    source.start();
+    if (seq === this.requestSeq) this.onstart?.();
+  }
+
+  // Plays a remote TTS URL through an <audio> element (the Zundamon
+  // server streams straight into it). With timeoutMs set, a server that
+  // neither answers nor errors gives up instead of hanging.
+  async playAudio(src, seq, { timeoutMs = 0 } = {}) {
     const audio = new Audio(src);
     this.currentAudio = audio;
     audio.onended = () => {
-      if (revoke) URL.revokeObjectURL(audio.src);
       if (this.currentAudio === audio) this.currentAudio = null;
       if (seq === this.requestSeq) this.onend?.();
     };
@@ -199,18 +241,13 @@ export class Speech {
     } catch (err) {
       audio.onended = audio.onpause = null;
       audio.pause();
-      if (revoke) URL.revokeObjectURL(audio.src);
-      else audio.removeAttribute('src'); // abort a request still in flight
+      audio.removeAttribute('src'); // abort a request still in flight
       if (this.currentAudio === audio) this.currentAudio = null;
       throw err;
     } finally {
       if (timer) clearTimeout(timer);
     }
     if (seq === this.requestSeq) this.onstart?.();
-  }
-
-  async playBlob(blob, seq) {
-    await this.playAudio(URL.createObjectURL(blob), seq, { revoke: true });
   }
 
   // ---- Zundamon: local zundamon-speech-webui (GPT-SoVITS) server ----------
@@ -312,17 +349,18 @@ export class Speech {
     // Second choice: the Edge neural voice; give up on it for this
     // session after repeated failures so every line isn't delayed by a
     // retry.
-    if (this.edgeFailures < 3) {
+    if (this.edgeAvailable && this.edgeFailures < 3) {
       try {
-        let blob = this.cache.get(cleaned);
-        if (!blob) {
-          blob = await this.synthesise(cleaned);
+        let buffer = this.cache.get(cleaned);
+        if (!buffer) {
+          const blob = await this.synthesise(cleaned);
+          buffer = await this.decode(blob);
           if (this.cache.size > 40) this.cache.delete(this.cache.keys().next().value);
-          this.cache.set(cleaned, blob);
+          this.cache.set(cleaned, buffer);
         }
         if (seq !== this.requestSeq) return; // superseded while synthesising
         this.edgeFailures = 0;
-        await this.playBlob(blob, seq);
+        await this.playBuffer(buffer, seq);
         return;
       } catch (err) {
         if (seq !== this.requestSeq) return;
@@ -361,18 +399,25 @@ export class Speech {
       try { this.currentWs.close(); } catch { /* already closed */ }
     }
     this.currentWs = null;
+    if (this.currentSource) {
+      const source = this.currentSource;
+      this.currentSource = null;
+      source.onended = null;
+      try { source.stop(); } catch { /* not started or already stopped */ }
+    }
     if (this.currentAudio) {
       const audio = this.currentAudio;
       this.currentAudio = null;
       audio.onended = audio.onpause = null;
       audio.pause();
-      URL.revokeObjectURL(audio.src);
+      audio.removeAttribute('src'); // abort a request still in flight
     }
     if (this.synthAvailable) window.speechSynthesis.cancel();
     this.onend?.();
   }
 
   isSpeaking() {
+    if (this.currentSource) return true;
     if (this.currentAudio && !this.currentAudio.paused) return true;
     return this.synthAvailable && window.speechSynthesis.speaking;
   }

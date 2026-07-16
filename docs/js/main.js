@@ -8,6 +8,7 @@ import { Dialogue } from './dialogue.js';
 import { Journal } from './journal.js';
 import { Speech } from './speech.js';
 import { BGM } from './bgm.js';
+import { resumeAudio } from './audio.js';
 import { UI } from './ui.js';
 import { XRManager } from './vr.js';
 import { ZONES, ACTIVITIES } from './zones.js';
@@ -230,12 +231,15 @@ arBtn.addEventListener('click', () => xr.start('ar'));
 world.start();
 dialogue.start();
 
-// Browsers block audio until the first interaction; play whatever line
-// was blocked as soon as the user interacts so the intro isn't lost,
-// and let the background music start too.
-window.addEventListener('pointerdown', () => {
-  speech.unlock();
+// Browsers block audio until the first interaction. Every tap tries to
+// unlock the shared AudioContext, restart any music the autoplay policy
+// blocked and play any line it swallowed. Listening to every tap (not
+// just the first) means one failed early attempt can't leave the app
+// silent for the rest of the session.
+window.addEventListener('pointerdown', async () => {
+  await resumeAudio();
   bgm.unlock();
-}, { once: true });
+  speech.unlock();
+});
 
 document.getElementById('loading').classList.add('is-done');
