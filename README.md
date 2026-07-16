@@ -25,9 +25,9 @@ Everything the prototype had, plus the parts it left unfinished:
 - **All four zones**: Blue, Green, Yellow and Red are fully implemented (the demo covered Yellow only). Riley's chest heart glows the colour of your zone.
 - **Check-in conversation**: Riley asks how you feel, reflects the feeling back, identifies the zone and offers matching tools. The flow is scripted and predictable, which keeps it dependable and safe for children, with no external AI service required.
 - **11 regulation tools**: balloon breathing, dragon breaths, 5-4-3-2-1 grounding, counting, rocket countdown, squeeze and let go, push the wall, star stretch, cozy care, talk it out, three happy things and a mindful minute. Breathing tools are guided by an animated balloon.
-- **Toolbox mode**: try any tool directly, without checking in first.
-- **Learn mode**: kid-friendly explanations of all four zones and their feelings.
-- **Feelings journal**: check-ins are remembered locally on the device (never uploaded), so children and carers can look back together.
+- **Toolbox in the conversation**: Riley offers the toolbox once a feeling is on the table, so tools always follow a check-in naturally.
+- **Learn**: kid-friendly explanations of all four zones and their feelings, available from the settings sheet.
+- **Feelings journal**: check-ins are remembered locally on the device (never uploaded), so children and carers can look back together. Also in the settings sheet.
 - **An animated Riley**: the character now blinks, bobs, waves, nods and celebrates (the prototype used a static, unrigged model).
 - **Riley speaks**: messages are read aloud with the built-in speech synthesis of the browser. Voice can be switched off.
 - **Accessible, child-friendly design**: large touch targets, keyboard focus states, reduced-motion support and a bright rounded look.

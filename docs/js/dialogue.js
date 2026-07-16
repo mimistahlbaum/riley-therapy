@@ -77,17 +77,15 @@ export class Dialogue {
     // With free chat available, Riley works out the feeling from the
     // conversation itself (like the original narrative design). The list
     // stays one tap away for children who prefer it and for VR.
+    // The toolbox is offered later, once a feeling is on the table —
+    // a check-in starts with the feeling, not with tools.
     if (this.freeChat?.()) {
       this.emit(`${pick(GREETINGS)} How are you feeling right now?`, [
         { id: 'show-feelings', label: '🙂 Pick from a list instead' },
-        { id: 'show-toolbox', label: '🧰 Toolbox' },
       ]);
       return;
     }
-    this.emit(`${pick(GREETINGS)} How are you feeling right now?`, [
-      ...this.feelingChoices(),
-      { id: 'show-toolbox', label: '🧰 Toolbox' },
-    ]);
+    this.emit(`${pick(GREETINGS)} How are you feeling right now?`, this.feelingChoices());
   }
 
   feelingChoices() {

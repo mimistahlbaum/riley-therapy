@@ -1,4 +1,4 @@
-// DOM user interface: chat bubbles, choice chips, mode tabs and sheets.
+// DOM user interface: chat bubbles, choice chips and sheets.
 
 import { ZONES, ZONE_ORDER, feelingById } from './zones.js';
 
@@ -6,7 +6,6 @@ export class UI {
   /**
    * @param {object} opts
    * @param {(id: string, label?: string) => void} opts.onChoice
-   * @param {() => void} opts.onToolboxOpen
    * @param {(zoneId: string) => void} opts.onLearnAsk
    * @param {(on: boolean) => void} opts.onVoiceToggle
    * @param {(on: boolean) => void} opts.onMotionToggle
@@ -15,9 +14,8 @@ export class UI {
    * @param {() => void} opts.onListenStart
    * @param {import('./journal.js').Journal} opts.journal
    */
-  constructor({ onChoice, onToolboxOpen, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, journal }) {
+  constructor({ onChoice, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, journal }) {
     this.onChoice = onChoice;
-    this.onToolboxOpen = onToolboxOpen;
     this.onLearnAsk = onLearnAsk;
     this.journal = journal;
 
@@ -75,11 +73,17 @@ export class UI {
 
     this.buildLearn();
 
-    // Tabs
-    this.tabs = [...document.querySelectorAll('.tab')];
-    for (const tab of this.tabs) {
-      tab.addEventListener('click', () => this.openTab(tab.dataset.tab));
-    }
+    // Learn and Journal live inside the settings sheet, keeping the
+    // main screen clear for the child.
+    document.getElementById('btn-open-learn').addEventListener('click', () => {
+      this.closeSheets();
+      this.sheets.learn.hidden = false;
+    });
+    document.getElementById('btn-open-journal').addEventListener('click', () => {
+      this.closeSheets();
+      this.renderJournal();
+      this.sheets.journal.hidden = false;
+    });
 
     // Sheet close buttons + backdrop click
     for (const [name, sheet] of Object.entries(this.sheets)) {
@@ -163,9 +167,16 @@ export class UI {
     if (on) this.showMessage({ text: '💭 Hmm, let me think…', choices: [] });
   }
 
+  // The settings toggle reflects the child's choice; the form itself can
+  // also hide when the AI service is unreachable, without flipping the
+  // setting off behind their back.
   setAIVisible(on) {
     this.chatForm.hidden = !on;
     this.aiCheck.checked = on;
+  }
+
+  setChatVisible(on) {
+    this.chatForm.hidden = !on;
   }
 
   setZone(zoneId) {
@@ -176,27 +187,10 @@ export class UI {
     document.getElementById('brand-heart').textContent = zone ? zone.emoji : '💗';
   }
 
-  // ---- Tabs and sheets ---------------------------------------------------
+  // ---- Sheets ------------------------------------------------------------
 
-  openTab(name) {
-    this.setActiveTab(name);
-    this.closeSheets(false);
-    if (name === 'checkin') return;
-    // The toolbox lives inside the conversation now, not a separate sheet.
-    if (name === 'toolbox') return this.onToolboxOpen();
-    if (name === 'journal') this.renderJournal();
-    this.sheets[name].hidden = false;
-  }
-
-  setActiveTab(name) {
-    for (const tab of this.tabs) tab.classList.toggle('is-active', tab.dataset.tab === name);
-  }
-
-  closeSheets(resetTab = true) {
+  closeSheets() {
     for (const sheet of Object.values(this.sheets)) sheet.hidden = true;
-    if (resetTab) {
-      for (const tab of this.tabs) tab.classList.toggle('is-active', tab.dataset.tab === 'checkin');
-    }
   }
 
   // ---- Learn ---------------------------------------------------------------
@@ -234,7 +228,7 @@ export class UI {
     const list = document.getElementById('journal-list');
     const entries = this.journal.recent(50);
     if (!entries.length) {
-      list.innerHTML = '<p class="journal-empty">No check-ins yet. Tap “Check in” and tell Riley how you feel! 💗</p>';
+      list.innerHTML = '<p class="journal-empty">No check-ins yet. Tell Riley how you feel! 💗</p>';
       return;
     }
     const afterLabels = { better: '😊 Felt better', same: '😐 The same', worse: '😟 Not great' };

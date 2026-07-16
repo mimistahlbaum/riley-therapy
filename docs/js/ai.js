@@ -97,16 +97,27 @@ function parseReply(raw) {
   return null;
 }
 
+const RETRY_AFTER_MS = 60000; // wait this long before probing a down service again
+
 export class RileyAI {
   constructor() {
     this.history = [];
     this.failures = 0;
+    this.retryAt = 0;
   }
 
-  // Too many failures in a row: stop trying for this session so every
-  // message isn't delayed by a doomed network call.
+  // After a few failures in a row, back off so every message isn't delayed
+  // by a doomed network call — but probe again after a cool-down, so a
+  // hiccup at the service doesn't mute free chat for the whole session.
   get available() {
-    return this.failures < 3 && typeof fetch !== 'undefined';
+    if (typeof fetch === 'undefined') return false;
+    return this.failures < 3 || Date.now() >= this.retryAt;
+  }
+
+  fail() {
+    this.failures += 1;
+    if (this.failures >= 3) this.retryAt = Date.now() + RETRY_AFTER_MS;
+    return null;
   }
 
   // Record a turn that happened outside free chat (Riley's scripted
@@ -158,16 +169,14 @@ export class RileyAI {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       raw = data?.choices?.[0]?.message?.content;
+      // Some models return content as an array of parts.
+      if (Array.isArray(raw)) raw = raw.map((part) => part?.text || '').join('');
     } catch {
-      this.failures += 1;
-      return null;
+      return this.fail();
     }
 
     const parsed = parseReply(raw);
-    if (!parsed) {
-      this.failures += 1;
-      return null;
-    }
+    if (!parsed) return this.fail();
     this.failures = 0;
 
     // Keep a short rolling history so Riley remembers the conversation.
