@@ -39,7 +39,7 @@ export class World {
 
     this.controls = new OrbitControls(this.camera, canvas);
     // Aim a little low so Riley's face sits above the chat panel.
-    this.controls.target.set(0, 0.45, 0);
+    this.controls.target.set(0, 0.38, 0);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.enablePan = false;
@@ -80,11 +80,15 @@ export class World {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 512;
     const ctx = canvas.getContext('2d');
+    // Base coat first so no texel is ever left unpainted (unpainted
+    // canvas is transparent and samples as black on the floor).
+    ctx.fillStyle = '#c49b70';
+    ctx.fillRect(0, 0, 512, 512);
     const plankW = 128;
     const plankH = 512;
     for (let col = 0; col < 4; col++) {
-      // Two planks per column, offset like real flooring
-      for (let row = 0; row < 2; row++) {
+      // Three staggered planks per column, offset like real flooring
+      for (let row = 0; row < 3; row++) {
         const shade = 0.92 + ((col * 7 + row * 13) % 5) * 0.035;
         ctx.fillStyle = `rgb(${Math.round(196 * shade)}, ${Math.round(155 * shade)}, ${Math.round(112 * shade)})`;
         const y = row * (plankH / 2) + (col % 2) * 64 - 64;

@@ -48,6 +48,11 @@
       <p id="riley-text" aria-live="polite"></p>
     </div>
     <div id="choices" class="choices" role="group" aria-label="Your answers"></div>
+    <form id="chat-form" class="chat-form" autocomplete="off">
+      <input id="chat-input" type="text" maxlength="200" placeholder="…or tell Riley in your own words"
+        aria-label="Tell Riley in your own words">
+      <button type="submit" class="chat-send" aria-label="Send to Riley">➤</button>
+    </form>
   </main>
 
   <!-- Toolbox -->
@@ -102,13 +107,17 @@
         <span>✨ Background animations</span>
         <input type="checkbox" id="setting-motion" checked>
       </label>
+      <label class="setting-row">
+        <span>💬 Free chat with Riley (AI)</span>
+        <input type="checkbox" id="setting-ai" checked>
+      </label>
       <div class="about">
         <h3>About Riley</h3>
         <p>Riley helps children notice, name and manage feelings using the
           <a href="https://zonesofregulation.com" target="_blank" rel="noopener">Zones of Regulation</a> framework.
           Riley is a practice buddy, not a therapist. If feelings stay big or heavy, talk to a trusted adult.</p>
         <p>Works in any modern browser. On a VR headset (like Meta Quest), open this page in the headset’s browser and press “Enter VR” or “Enter AR”.</p>
-        <p class="privacy">🔒 Privacy: check-ins and the journal stay in your browser — no accounts, no sign-ups, nothing stored anywhere else. Riley’s voice uses Microsoft’s online neural voices, so only the words Riley speaks out loud are sent to that service to make the audio. If it can’t be reached, Riley falls back to your device’s built-in voice.</p>
+        <p class="privacy">🔒 Privacy: check-ins and the journal stay in your browser — no accounts, no sign-ups, nothing stored anywhere else. Riley’s voice uses Microsoft’s online neural voices, so only the words Riley speaks out loud are sent to that service to make the audio. If you type to Riley, that message is sent to Pollinations.AI (a free service, no account needed) to create Riley’s reply — you can turn free chat off above. If either service can’t be reached, Riley falls back to the built-in voice and buttons.</p>
       </div>
     </div>
   </section>

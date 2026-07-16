@@ -9,7 +9,8 @@ import { Journal } from './journal.js';
 import { Speech } from './speech.js';
 import { UI } from './ui.js';
 import { XRManager } from './vr.js';
-import { ZONES } from './zones.js';
+import { ZONES, ACTIVITIES } from './zones.js';
+import { RileyAI, looksLikeCrisis } from './ai.js';
 
 const canvas = document.getElementById('scene');
 const world = new World(canvas);
@@ -46,9 +47,68 @@ const dialogue = new Dialogue({
   onGesture: (gesture) => riley.setGesture(gesture),
 });
 
+// ---- AI free chat ------------------------------------------------------
+
+const ai = new RileyAI();
+let aiEnabled = true;
+try {
+  aiEnabled = localStorage.getItem('riley-ai-enabled') !== 'false';
+} catch { /* storage unavailable: keep default */ }
+
+// Choice ids beginning with "ai:" are tappable suggestions from the AI;
+// everything else belongs to the scripted dialogue.
+function routeChoice(id) {
+  if (id.startsWith('ai:')) return handleFreeText(id.slice(3));
+  return dialogue.choose(id);
+}
+
+async function handleFreeText(text) {
+  if (!aiEnabled) return;
+  dialogue.clearTimers();
+  dialogue.activity = null;
+  dialogue.state = 'ai';
+
+  // Safety first: these messages never go to the AI. The app answers
+  // itself and points the child to a trusted adult.
+  if (looksLikeCrisis(text)) {
+    dialogue.emit(
+      'Thank you for trusting me with something so important. This is too big for us to carry alone — please tell a trusted grown-up right away: a parent, carer or teacher. You deserve help and care, always. 💗',
+      [
+        { id: 'activity:talk', label: '💬 Practise telling someone' },
+        { id: 'restart', label: '↩️ Check in with Riley' },
+      ],
+    );
+    return;
+  }
+
+  ui.setThinking(true);
+  const res = await ai.chat(text, dialogue.zoneId);
+  ui.setThinking(false);
+
+  if (!res) {
+    dialogue.emit(
+      'Oh! My thinking cloud drifted away for a moment. Let’s use the buttons together instead. 💗',
+      [{ id: 'restart', label: '💬 Check in with Riley' }],
+    );
+    return;
+  }
+
+  if (res.zone) dialogue.setZone(res.zone); // heart takes the zone colour
+  riley.setGesture('nod');
+
+  const choices = [];
+  if (res.activity) {
+    const a = ACTIVITIES[res.activity];
+    choices.push({ id: `activity:${a.id}`, label: `${a.emoji} Try ${a.name.toLowerCase()}` });
+  }
+  for (const s of res.suggestions) choices.push({ id: `ai:${s}`, label: s });
+  choices.push({ id: 'restart', label: '💬 Check in' });
+  dialogue.emit(res.reply, choices);
+}
+
 ui = new UI({
   journal,
-  onChoice: (id) => dialogue.choose(id),
+  onChoice: routeChoice,
   onToolboxPick: (activityId) => dialogue.startActivity(activityId, { fromToolbox: true }),
   onLearnAsk: (zoneId) => {
     const zone = ZONES[zoneId];
@@ -62,7 +122,15 @@ ui = new UI({
   },
   onVoiceToggle: (on) => speech.setEnabled(on),
   onMotionToggle: (on) => world.setMotion(on),
+  onFreeText: handleFreeText,
+  onAIToggle: (on) => {
+    aiEnabled = on;
+    try {
+      localStorage.setItem('riley-ai-enabled', String(on));
+    } catch { /* storage unavailable */ }
+  },
 });
+ui.setAIVisible(aiEnabled);
 
 // ---- WebXR -----------------------------------------------------------
 
@@ -70,7 +138,7 @@ const rileyHome = new THREE.Vector3(0, 0, 0);
 const rileyXR = new THREE.Vector3(-0.35, 0, -1.35);
 
 const xr = new XRManager(world, {
-  onChoice: (id) => dialogue.choose(id),
+  onChoice: routeChoice,
   onSessionChange: (active) => {
     if (active) {
       riley.group.position.copy(rileyXR);

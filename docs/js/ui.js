@@ -10,9 +10,11 @@ export class UI {
    * @param {(zoneId: string) => void} opts.onLearnAsk
    * @param {(on: boolean) => void} opts.onVoiceToggle
    * @param {(on: boolean) => void} opts.onMotionToggle
+   * @param {(text: string) => void} opts.onFreeText
+   * @param {(on: boolean) => void} opts.onAIToggle
    * @param {import('./journal.js').Journal} opts.journal
    */
-  constructor({ onChoice, onToolboxPick, onLearnAsk, onVoiceToggle, onMotionToggle, journal }) {
+  constructor({ onChoice, onToolboxPick, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, journal }) {
     this.onChoice = onChoice;
     this.onToolboxPick = onToolboxPick;
     this.onLearnAsk = onLearnAsk;
@@ -21,6 +23,18 @@ export class UI {
     this.rileyText = document.getElementById('riley-text');
     this.choicesEl = document.getElementById('choices');
     this.chatEl = document.getElementById('chat');
+
+    // Free-text chat with Riley (AI)
+    this.chatForm = document.getElementById('chat-form');
+    this.chatInput = document.getElementById('chat-input');
+    this.chatSend = this.chatForm.querySelector('.chat-send');
+    this.chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = this.chatInput.value.trim();
+      if (!text || this.chatInput.disabled) return;
+      this.chatInput.value = '';
+      onFreeText(text);
+    });
 
     this.sheets = {
       toolbox: document.getElementById('sheet-toolbox'),
@@ -67,6 +81,13 @@ export class UI {
     const motionCheck = document.getElementById('setting-motion');
     motionCheck.addEventListener('change', () => onMotionToggle(motionCheck.checked));
 
+    // AI free-chat toggle
+    this.aiCheck = document.getElementById('setting-ai');
+    this.aiCheck.addEventListener('change', () => {
+      this.setAIVisible(this.aiCheck.checked);
+      onAIToggle(this.aiCheck.checked);
+    });
+
     // Settings button
     document.getElementById('btn-settings').addEventListener('click', () => {
       this.closeSheets();
@@ -95,6 +116,19 @@ export class UI {
       btn.addEventListener('click', () => this.onChoice(choice.id));
       this.choicesEl.appendChild(btn);
     });
+  }
+
+  // While Riley is thinking of an AI reply the input is locked so the
+  // child can't queue up several messages at once.
+  setThinking(on) {
+    this.chatInput.disabled = on;
+    this.chatSend.disabled = on;
+    if (on) this.showMessage({ text: '💭 Hmm, let me think…', choices: [] });
+  }
+
+  setAIVisible(on) {
+    this.chatForm.hidden = !on;
+    this.aiCheck.checked = on;
   }
 
   setZone(zoneId) {
