@@ -1,11 +1,26 @@
-// Text-to-speech for Riley using Microsoft Edge's neural voices
-// (the same online voices Edge uses for Read Aloud), spoken with
-// "Ana" — a warm, natural child voice.
+// Text-to-speech for Riley, tried in order:
 //
-// Audio is synthesised over the Edge Read Aloud websocket endpoint and
-// played back as MP3. If the service can't be reached (offline, blocked
-// network), Riley falls back to the browser's built-in speech synthesis
-// so the app keeps working everywhere, including the Quest browser.
+// 1. Zundamon — a locally running zundamon-speech-webui server
+//    (https://github.com/zunzun999/zundamon-speech-webui, GPT-SoVITS).
+//    Start its API alongside the models from that repo's README, e.g.
+//      cd zundamon-speech-webui/GPT-SoVITS
+//      python api.py -g GPT_weights_v2/zudamon_style_1-e15.ckpt \
+//        -s SoVITS_weights_v2/zudamon_style_1_e8_s96.pth \
+//        -dr ../reference/reference.wav \
+//        -dt "流し切りが完全に入ればデバフの効果が付与される" -dl ja
+//    The default address http://127.0.0.1:9880 can be overridden via
+//    localStorage key "riley-zundamon-url". The audio streams straight
+//    into an <audio> element, so no CORS setup is needed on the server.
+// 2. Microsoft Edge's neural voices (the same online voices Edge uses
+//    for Read Aloud), spoken with "Ana" — a warm, natural child voice,
+//    synthesised over the Edge Read Aloud websocket endpoint.
+// 3. The browser's built-in speech synthesis, as the last resort, so
+//    the app keeps working everywhere, including the Quest browser.
+
+const ZUNDAMON_BASE = 'http://127.0.0.1:9880';
+// Synthesis on a slow machine can take a while, but a hung request must
+// not leave Riley silent forever before the fallbacks get their turn.
+const ZUNDAMON_TIMEOUT_MS = 12000;
 
 const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAAB49E09B30460754FA3000';
 const CHROMIUM_FULL_VERSION = '130.0.2849.68';
@@ -55,6 +70,11 @@ export class Speech {
     this.currentWs = null;
     this.requestSeq = 0;
     this.edgeFailures = 0;
+    this.zundaFailures = 0;
+    this.zundamonBase = ZUNDAMON_BASE;
+    try {
+      this.zundamonBase = localStorage.getItem('riley-zundamon-url') || this.zundamonBase;
+    } catch { /* storage unavailable: keep default */ }
     this.cache = new Map(); // cleaned text -> audio Blob
     this.lastText = null; // last message asked to be spoken (cleaned)
     this.pendingText = null; // blocked by autoplay policy, waiting for a gesture
@@ -66,7 +86,10 @@ export class Speech {
       this.pickFallbackVoice();
       window.speechSynthesis.onvoiceschanged = () => this.pickFallbackVoice();
     }
-    this.available = (typeof WebSocket !== 'undefined' && 'subtle' in (crypto || {})) || this.synthAvailable;
+    this.available =
+      typeof Audio !== 'undefined' || // Zundamon server playback
+      (typeof WebSocket !== 'undefined' && 'subtle' in (crypto || {})) ||
+      this.synthAvailable;
   }
 
   // ---- Edge neural voice ------------------------------------------------
@@ -154,24 +177,47 @@ export class Speech {
     });
   }
 
-  async playBlob(blob, seq) {
-    const audio = new Audio(URL.createObjectURL(blob));
+  // Plays a blob object URL or a remote TTS URL. With timeoutMs set, a
+  // server that neither answers nor errors gives up instead of hanging.
+  async playAudio(src, seq, { revoke = false, timeoutMs = 0 } = {}) {
+    const audio = new Audio(src);
     this.currentAudio = audio;
     audio.onended = () => {
-      URL.revokeObjectURL(audio.src);
+      if (revoke) URL.revokeObjectURL(audio.src);
       if (this.currentAudio === audio) this.currentAudio = null;
       if (seq === this.requestSeq) this.onend?.();
     };
     audio.onpause = audio.onended;
+    let timer = null;
     try {
-      await audio.play();
+      const playing = audio.play();
+      await (timeoutMs
+        ? Promise.race([playing, new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error('TTS server timed out')), timeoutMs);
+          })])
+        : playing);
     } catch (err) {
       audio.onended = audio.onpause = null;
-      URL.revokeObjectURL(audio.src);
+      audio.pause();
+      if (revoke) URL.revokeObjectURL(audio.src);
+      else audio.removeAttribute('src'); // abort a request still in flight
       if (this.currentAudio === audio) this.currentAudio = null;
       throw err;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
     if (seq === this.requestSeq) this.onstart?.();
+  }
+
+  async playBlob(blob, seq) {
+    await this.playAudio(URL.createObjectURL(blob), seq, { revoke: true });
+  }
+
+  // ---- Zundamon: local zundamon-speech-webui (GPT-SoVITS) server ----------
+
+  zundamonSrc(text) {
+    const base = this.zundamonBase.replace(/\/+$/, '');
+    return `${base}/?text=${encodeURIComponent(text)}&text_language=en`;
   }
 
   // ---- Fallback: browser speech synthesis --------------------------------
@@ -240,8 +286,32 @@ export class Speech {
     this.stop();
     const seq = ++this.requestSeq;
 
-    // Prefer the Edge neural voice; give up on it for this session
-    // after repeated failures so every line isn't delayed by a retry.
+    // First choice: the Zundamon voice from a locally running
+    // zundamon-speech-webui server. When no server is listening the
+    // attempt fails almost instantly, and after repeated failures it is
+    // skipped for the rest of the session.
+    if (this.zundaFailures < 3) {
+      try {
+        await this.playAudio(this.zundamonSrc(cleaned), seq, { timeoutMs: ZUNDAMON_TIMEOUT_MS });
+        this.zundaFailures = 0;
+        return;
+      } catch (err) {
+        if (seq !== this.requestSeq) return;
+        // Autoplay policy blocked playback: the server is fine, the
+        // browser just wants a user gesture first. Keep the line ready
+        // for the next tap instead of counting a failure.
+        if (err?.name === 'NotAllowedError') {
+          this.pendingText = cleaned;
+          this.onblocked?.();
+          return;
+        }
+        this.zundaFailures += 1;
+      }
+    }
+
+    // Second choice: the Edge neural voice; give up on it for this
+    // session after repeated failures so every line isn't delayed by a
+    // retry.
     if (this.edgeFailures < 3) {
       try {
         let blob = this.cache.get(cleaned);

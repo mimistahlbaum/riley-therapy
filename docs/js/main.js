@@ -7,6 +7,7 @@ import { Riley } from './riley.js';
 import { Dialogue } from './dialogue.js';
 import { Journal } from './journal.js';
 import { Speech } from './speech.js';
+import { BGM } from './bgm.js';
 import { UI } from './ui.js';
 import { XRManager } from './vr.js';
 import { ZONES, ACTIVITIES } from './zones.js';
@@ -22,12 +23,25 @@ world.onUpdate((dt, time) => riley.update(dt, time));
 
 const journal = new Journal();
 const speech = new Speech();
+
+// Gentle background music, ducked while Riley speaks so the voice
+// always stays on top.
+const bgm = new BGM();
+let bgmEnabled = true;
+try {
+  bgmEnabled = localStorage.getItem('riley-bgm-enabled') !== 'false';
+} catch { /* storage unavailable: keep default */ }
+
 // Riley's little mouth moves while the voice is playing.
 speech.onstart = () => {
   riley.setTalking(true);
   ui.setReplayAttention(false);
+  bgm.setDucked(true);
 };
-speech.onend = () => riley.setTalking(false);
+speech.onend = () => {
+  riley.setTalking(false);
+  bgm.setDucked(false);
+};
 // The browser blocked audio before the first tap: make the replay
 // button pulse so it's obvious how to hear Riley.
 speech.onblocked = () => ui.setReplayAttention(true);
@@ -156,6 +170,13 @@ ui = new UI({
   },
   onReplay: () => speech.replay(),
   onMotionToggle: (on) => world.setMotion(on),
+  onBGMToggle: (on) => {
+    bgmEnabled = on;
+    try {
+      localStorage.setItem('riley-bgm-enabled', String(on));
+    } catch { /* storage unavailable */ }
+    bgm.setEnabled(on);
+  },
   onFreeText: handleFreeText,
   onListenStart: () => speech.stop(),
   onAIToggle: (on) => {
@@ -171,6 +192,8 @@ ui = new UI({
 });
 ui.setAIVisible(aiEnabled);
 ui.setReplayVisible(speech.available && speech.enabled);
+ui.setBGMChecked(bgmEnabled);
+bgm.setEnabled(bgmEnabled);
 
 // ---- WebXR -----------------------------------------------------------
 
@@ -208,7 +231,11 @@ world.start();
 dialogue.start();
 
 // Browsers block audio until the first interaction; play whatever line
-// was blocked as soon as the user interacts so the intro isn't lost.
-window.addEventListener('pointerdown', () => speech.unlock(), { once: true });
+// was blocked as soon as the user interacts so the intro isn't lost,
+// and let the background music start too.
+window.addEventListener('pointerdown', () => {
+  speech.unlock();
+  bgm.unlock();
+}, { once: true });
 
 document.getElementById('loading').classList.add('is-done');
