@@ -96,14 +96,15 @@ async function handleFreeText(text) {
   ui.setThinking(false);
 
   if (!res) {
-    // The AI couldn't answer: carry straight on with the scripted feeling
-    // list so the child never lands in a dead end. While the service is
-    // down the text input hides too; it comes back when the AI recovers.
+    // The AI couldn't answer even after a retry: offer to try once more
+    // and carry on with the scripted feeling list so the child never
+    // lands in a dead end. While the service is down the text input
+    // hides too; it comes back when the AI recovers.
     ui.setChatVisible(aiEnabled && ai.available);
     dialogue.state = 'greeting';
     dialogue.emit(
-      'Oh! My thinking cloud drifted away for a moment. Let’s use the buttons instead — which of these feels closest? 💗',
-      dialogue.feelingChoices(),
+      'Oh! My thinking cloud drifted away for a moment. We can try again, or use the buttons — which of these feels closest? 💗',
+      [{ id: `ai:${text}`, label: '🔁 Try again' }, ...dialogue.feelingChoices()],
     );
     return;
   }
