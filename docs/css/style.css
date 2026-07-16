@@ -314,7 +314,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   50% { box-shadow: 0 0 0 12px rgba(240, 113, 106, 0); }
 }
 
-/* ---- Sheets (Toolbox / Learn / Journal / Settings) ------------------- */
+/* ---- Sheets (Learn / Journal / Settings) ------------------------------ */
 
 .sheet {
   position: fixed;
@@ -360,46 +360,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: var(--ink-soft);
   font-weight: 600;
   margin-top: 4px;
-}
-
-/* Toolbox */
-
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.tool-card {
-  text-align: left;
-  background: #fff;
-  border: 2.5px solid #efe2d3;
-  border-radius: var(--radius-m);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-
-.tool-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--zone);
-  box-shadow: var(--shadow);
-}
-
-.tool-emoji { font-size: 1.7rem; }
-.tool-name { font-weight: 800; font-size: 1.02rem; }
-.tool-blurb { color: var(--ink-soft); font-size: 0.88rem; font-weight: 600; line-height: 1.4; }
-
-.tool-zones { display: flex; gap: 4px; }
-
-.zone-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: inline-block;
 }
 
 /* Learn */

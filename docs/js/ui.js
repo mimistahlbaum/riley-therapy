@@ -1,12 +1,12 @@
 // DOM user interface: chat bubbles, choice chips, mode tabs and sheets.
 
-import { ZONES, ZONE_ORDER, ACTIVITIES, feelingById } from './zones.js';
+import { ZONES, ZONE_ORDER, feelingById } from './zones.js';
 
 export class UI {
   /**
    * @param {object} opts
-   * @param {(id: string) => void} opts.onChoice
-   * @param {(activityId: string) => void} opts.onToolboxPick
+   * @param {(id: string, label?: string) => void} opts.onChoice
+   * @param {() => void} opts.onToolboxOpen
    * @param {(zoneId: string) => void} opts.onLearnAsk
    * @param {(on: boolean) => void} opts.onVoiceToggle
    * @param {(on: boolean) => void} opts.onMotionToggle
@@ -15,9 +15,9 @@ export class UI {
    * @param {() => void} opts.onListenStart
    * @param {import('./journal.js').Journal} opts.journal
    */
-  constructor({ onChoice, onToolboxPick, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, journal }) {
+  constructor({ onChoice, onToolboxOpen, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, journal }) {
     this.onChoice = onChoice;
-    this.onToolboxPick = onToolboxPick;
+    this.onToolboxOpen = onToolboxOpen;
     this.onLearnAsk = onLearnAsk;
     this.journal = journal;
 
@@ -68,13 +68,11 @@ export class UI {
     }
 
     this.sheets = {
-      toolbox: document.getElementById('sheet-toolbox'),
       learn: document.getElementById('sheet-learn'),
       journal: document.getElementById('sheet-journal'),
       settings: document.getElementById('sheet-settings'),
     };
 
-    this.buildToolbox();
     this.buildLearn();
 
     // Tabs
@@ -144,7 +142,7 @@ export class UI {
       btn.className = 'choice';
       btn.style.setProperty('--i', i);
       btn.textContent = choice.label;
-      btn.addEventListener('click', () => this.onChoice(choice.id));
+      btn.addEventListener('click', () => this.onChoice(choice.id, choice.label));
       this.choicesEl.appendChild(btn);
     });
   }
@@ -181,40 +179,23 @@ export class UI {
   // ---- Tabs and sheets ---------------------------------------------------
 
   openTab(name) {
-    for (const tab of this.tabs) tab.classList.toggle('is-active', tab.dataset.tab === name);
+    this.setActiveTab(name);
     this.closeSheets(false);
     if (name === 'checkin') return;
+    // The toolbox lives inside the conversation now, not a separate sheet.
+    if (name === 'toolbox') return this.onToolboxOpen();
     if (name === 'journal') this.renderJournal();
     this.sheets[name].hidden = false;
+  }
+
+  setActiveTab(name) {
+    for (const tab of this.tabs) tab.classList.toggle('is-active', tab.dataset.tab === name);
   }
 
   closeSheets(resetTab = true) {
     for (const sheet of Object.values(this.sheets)) sheet.hidden = true;
     if (resetTab) {
       for (const tab of this.tabs) tab.classList.toggle('is-active', tab.dataset.tab === 'checkin');
-    }
-  }
-
-  // ---- Toolbox -----------------------------------------------------------
-
-  buildToolbox() {
-    const grid = document.getElementById('toolbox-grid');
-    for (const activity of Object.values(ACTIVITIES)) {
-      const zones = ZONE_ORDER.filter((z) => ZONES[z].activities.includes(activity.id));
-      const card = document.createElement('button');
-      card.className = 'tool-card';
-      card.innerHTML = `
-        <span class="tool-emoji">${activity.emoji}</span>
-        <span class="tool-name">${activity.name}</span>
-        <span class="tool-blurb">${activity.blurb}</span>
-        <span class="tool-zones" aria-label="Good for: ${zones.map((z) => ZONES[z].name).join(', ')}">
-          ${zones.map((z) => `<span class="zone-dot" style="background:${ZONES[z].css}"></span>`).join('')}
-        </span>`;
-      card.addEventListener('click', () => {
-        this.closeSheets();
-        this.onToolboxPick(activity.id);
-      });
-      grid.appendChild(card);
     }
   }
 

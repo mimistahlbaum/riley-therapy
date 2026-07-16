@@ -42,6 +42,7 @@ How a conversation flows (follow these stages in order, one step per reply):
 5. Body check: after an activity, ask how their body feels now.
 6. Reflection: if they feel better, celebrate — they helped their own body, that is a superpower. If not, be kind: feelings need time, offer another tool, and remind them a trusted grown-up can help. Then they can always come back to say hello.
 A child may jump in at any stage; meet them where they are instead of starting over.
+The chat history may include earlier messages from the app's guided check-in and answer buttons the child tapped: treat them as part of this same conversation. Never restart the flow or repeat a stage that already happened. If the conversation has already begun, do not greet the child again or ask how they are feeling again — reply directly to what they just said, and never repeat an earlier reply word for word.
 
 Safety rules (most important, never break these):
 - You are a practice buddy, not a therapist or doctor. Never diagnose anything or give medical advice.
@@ -108,6 +109,20 @@ export class RileyAI {
     return this.failures < 3 && typeof fetch !== 'undefined';
   }
 
+  // Record a turn that happened outside free chat (Riley's scripted
+  // messages, answer chips the child tapped) so the AI carries the same
+  // conversation on instead of starting the check-in over from the top.
+  note(role, text) {
+    const content = String(text || '').trim();
+    if (!content) return;
+    const last = this.history[this.history.length - 1];
+    if (last && last.role === role && last.content === content) return;
+    this.history.push({ role, content });
+    if (this.history.length > HISTORY_LIMIT) {
+      this.history.splice(0, this.history.length - HISTORY_LIMIT);
+    }
+  }
+
   /**
    * Ask Riley for a reply to the child's message.
    * Resolves to {reply, suggestions, activity, zone} or null on failure.
@@ -156,11 +171,9 @@ export class RileyAI {
     this.failures = 0;
 
     // Keep a short rolling history so Riley remembers the conversation.
-    this.history.push({ role: 'user', content: text });
-    this.history.push({ role: 'assistant', content: parsed.reply });
-    if (this.history.length > HISTORY_LIMIT) {
-      this.history.splice(0, this.history.length - HISTORY_LIMIT);
-    }
+    // The reply itself is noted when the app shows it, so every message —
+    // scripted or AI — lands in the history exactly once, in order.
+    this.note('user', text);
 
     // Only pass through values the app knows how to handle safely.
     const suggestions = Array.isArray(parsed.suggestions)
