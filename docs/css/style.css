@@ -171,6 +171,39 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   transition: color 0.6s;
 }
 
+.bubble-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bubble-replay {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--zone-soft);
+  font-size: 0.95rem;
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s;
+}
+
+.bubble-replay:hover { transform: scale(1.12); }
+.bubble-replay[hidden] { display: none; }
+
+/* Riley's line couldn't play yet (browser waits for a tap): invite one. */
+.bubble-replay.needs-attention {
+  animation: replay-pulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 0 4px var(--zone-soft);
+}
+
+@keyframes replay-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
 #riley-text {
   margin: 4px 0 2px;
   font-size: 1.12rem;

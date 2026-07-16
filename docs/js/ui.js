@@ -12,9 +12,10 @@ export class UI {
    * @param {(text: string) => void} opts.onFreeText
    * @param {(on: boolean) => void} opts.onAIToggle
    * @param {() => void} opts.onListenStart
+   * @param {() => void} opts.onReplay
    * @param {import('./journal.js').Journal} opts.journal
    */
-  constructor({ onChoice, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, journal }) {
+  constructor({ onChoice, onLearnAsk, onVoiceToggle, onMotionToggle, onFreeText, onAIToggle, onListenStart, onReplay, journal }) {
     this.onChoice = onChoice;
     this.onLearnAsk = onLearnAsk;
     this.journal = journal;
@@ -22,6 +23,14 @@ export class UI {
     this.rileyText = document.getElementById('riley-text');
     this.choicesEl = document.getElementById('choices');
     this.chatEl = document.getElementById('chat');
+
+    // Play the current message out loud again (also the way to hear the
+    // greeting when the browser blocked audio before the first tap).
+    this.replayBtn = document.getElementById('btn-replay');
+    this.replayBtn.addEventListener('click', () => {
+      this.setReplayAttention(false);
+      onReplay?.();
+    });
 
     // Free-text chat with Riley (AI)
     this.chatForm = document.getElementById('chat-form');
@@ -149,6 +158,15 @@ export class UI {
       btn.addEventListener('click', () => this.onChoice(choice.id, choice.label));
       this.choicesEl.appendChild(btn);
     });
+  }
+
+  setReplayVisible(on) {
+    this.replayBtn.hidden = !on;
+    if (!on) this.setReplayAttention(false);
+  }
+
+  setReplayAttention(on) {
+    this.replayBtn.classList.toggle('needs-attention', on);
   }
 
   setListening(on) {

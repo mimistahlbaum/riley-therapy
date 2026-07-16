@@ -23,8 +23,14 @@ world.onUpdate((dt, time) => riley.update(dt, time));
 const journal = new Journal();
 const speech = new Speech();
 // Riley's little mouth moves while the voice is playing.
-speech.onstart = () => riley.setTalking(true);
+speech.onstart = () => {
+  riley.setTalking(true);
+  ui.setReplayAttention(false);
+};
 speech.onend = () => riley.setTalking(false);
+// The browser blocked audio before the first tap: make the replay
+// button pulse so it's obvious how to hear Riley.
+speech.onblocked = () => ui.setReplayAttention(true);
 
 let ui; // assigned below; dialogue callbacks fire only after start()
 
@@ -143,7 +149,12 @@ ui = new UI({
       { id: 'restart', label: '💬 Check in with Riley' },
     ]);
   },
-  onVoiceToggle: (on) => speech.setEnabled(on),
+  onVoiceToggle: (on) => {
+    speech.setEnabled(on);
+    ui.setReplayVisible(on);
+    if (on) speech.replay();
+  },
+  onReplay: () => speech.replay(),
   onMotionToggle: (on) => world.setMotion(on),
   onFreeText: handleFreeText,
   onListenStart: () => speech.stop(),
@@ -159,6 +170,7 @@ ui = new UI({
   },
 });
 ui.setAIVisible(aiEnabled);
+ui.setReplayVisible(speech.available && speech.enabled);
 
 // ---- WebXR -----------------------------------------------------------
 
@@ -195,20 +207,8 @@ arBtn.addEventListener('click', () => xr.start('ar'));
 world.start();
 dialogue.start();
 
-// Browsers block audio until the first interaction; re-speak the greeting
-// once the user interacts so the intro isn't silently lost.
-let resumed = false;
-window.addEventListener(
-  'pointerdown',
-  () => {
-    if (!resumed) {
-      resumed = true;
-      if (speech.available && speech.enabled && !speech.isSpeaking()) {
-        speech.speak(document.getElementById('riley-text').textContent);
-      }
-    }
-  },
-  { once: true },
-);
+// Browsers block audio until the first interaction; play whatever line
+// was blocked as soon as the user interacts so the intro isn't lost.
+window.addEventListener('pointerdown', () => speech.unlock(), { once: true });
 
 document.getElementById('loading').classList.add('is-done');

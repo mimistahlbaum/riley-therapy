@@ -38,7 +38,11 @@
 
   <main id="chat" class="chat" aria-label="Conversation with Riley">
     <div class="bubble">
-      <div class="bubble-label">Riley</div>
+      <div class="bubble-head">
+        <div class="bubble-label">Riley</div>
+        <button type="button" id="btn-replay" class="bubble-replay" title="Hear this message"
+          aria-label="Hear this message">▶️</button>
+      </div>
       <p id="riley-text" aria-live="polite"></p>
     </div>
     <div id="choices" class="choices" role="group" aria-label="Your answers"></div>
