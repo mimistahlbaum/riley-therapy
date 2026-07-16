@@ -7,8 +7,6 @@
 import * as THREE from 'three';
 
 const BODY_WHITE = 0xf7f4f0;
-const SHADE_SOFT = 0xd9d2cb;
-const MOUTH_INNER = 0xcfc6bf;
 const HEART_CORAL = 0xf0716a;
 
 function heartGeometry(size = 1) {
@@ -108,42 +106,47 @@ export class Riley {
   }
 
   buildFace() {
-    const socketMat = new THREE.MeshStandardMaterial({ color: SHADE_SOFT, roughness: 0.9 });
-    const ballMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
-
-    // Eyes: small white buttons resting in soft moulded sockets.
+    // Tiny black dot eyes, warawara-style.
+    const dotMat = new THREE.MeshStandardMaterial({ color: 0x2f2a26, roughness: 0.4 });
     this.eyes = [];
     const eyeY = 0.66;
     const eyeR = bodyRadiusAt(eyeY);
     for (const side of [-1, 1]) {
       const eye = new THREE.Group();
-      const x = 0.125 * side;
-      eye.position.set(x, eyeY, Math.sqrt(Math.max(0.0001, eyeR * eyeR - x * x)) - 0.012);
-      const socket = new THREE.Mesh(new THREE.SphereGeometry(0.048, 20, 14), socketMat);
-      socket.scale.z = 0.3;
-      eye.add(socket);
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.04, 18, 14), ballMat);
-      ball.position.z = 0.02;
-      eye.add(ball);
+      const x = 0.115 * side;
+      eye.position.set(x, eyeY, Math.sqrt(Math.max(0.0001, eyeR * eyeR - x * x)) - 0.005);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.026, 16, 12), dotMat);
+      dot.scale.z = 0.55;
+      eye.add(dot);
       this.core.add(eye);
       this.eyes.push(eye);
     }
 
-    // Mouth: a softly open rounded mouth with a raised rim.
-    const mouthY = 0.52;
+    // Mouth: a red half-circle smile — flat on top, gently bulging below.
+    const r = 0.068;
+    const smileShape = new THREE.Shape();
+    smileShape.moveTo(-r, 0);
+    smileShape.lineTo(r, 0);
+    smileShape.absarc(0, 0, r, 0, Math.PI, true);
+    const smileGeo = new THREE.ExtrudeGeometry(smileShape, {
+      depth: 0.012,
+      bevelEnabled: true,
+      bevelThickness: 0.008,
+      bevelSize: 0.008,
+      bevelSegments: 3,
+      curveSegments: 24,
+    });
+    const mouthY = 0.53;
     const mouthZ = bodyRadiusAt(mouthY);
     this.mouth = new THREE.Group();
-    this.mouth.position.set(0, mouthY, mouthZ - 0.02);
-    const inner = new THREE.Mesh(new THREE.SphereGeometry(0.072, 24, 16), new THREE.MeshStandardMaterial({ color: MOUTH_INNER, roughness: 0.95 }));
-    inner.scale.set(1.3, 1, 0.35);
-    this.mouth.add(inner);
-    const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(0.072, 0.02, 12, 36),
-      new THREE.MeshStandardMaterial({ color: BODY_WHITE, roughness: 0.6 }),
+    this.mouth.position.set(0, mouthY, mouthZ - 0.008);
+    this.mouth.rotation.x = -0.12; // follow the face's curve
+    const smile = new THREE.Mesh(
+      smileGeo,
+      new THREE.MeshStandardMaterial({ color: 0xc94f44, roughness: 0.55 }),
     );
-    rim.scale.set(1.3, 1, 1);
-    rim.position.z = 0.02;
-    this.mouth.add(rim);
+    smile.scale.x = 1.25; // a touch wider than tall, like a happy grin
+    this.mouth.add(smile);
     this.core.add(this.mouth);
   }
 
