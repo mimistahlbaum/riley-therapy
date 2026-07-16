@@ -27,16 +27,22 @@ function heartGeometry(size = 1) {
   return geo;
 }
 
-// Egg/pear profile for the body: widest just below the middle,
-// smoothly rounded at the top. Built as a lathe so it stays seamless.
+// Egg/pear profile for the body: plump around the bottom but with a
+// softly rounded dome on top (no teardrop point). The fattening factor
+// only really applies below the widest point and fades out above it.
+function profileRadius(a, radius) {
+  const c = Math.cos(a);
+  const k = c > 0 ? 0.08 + 0.2 * c : 0.08;
+  return Math.sin(a) * radius * (1 + k * c);
+}
+
 function bodyGeometry(height = 0.95, radius = 0.4) {
   const points = [];
   const segments = 28;
   for (let i = 0; i <= segments; i++) {
     const a = (i / segments) * Math.PI;
     const y = ((1 - Math.cos(a)) / 2) * height;
-    const r = Math.sin(a) * radius * (1 + 0.28 * Math.cos(a));
-    points.push(new THREE.Vector2(Math.max(r, 0.0001), y));
+    points.push(new THREE.Vector2(Math.max(profileRadius(a, radius), 0.0001), y));
   }
   return new THREE.LatheGeometry(points, 48);
 }
@@ -45,8 +51,7 @@ function bodyGeometry(height = 0.95, radius = 0.4) {
 // flush against the surface.
 function bodyRadiusAt(y, height = 0.95, radius = 0.4) {
   const c = Math.min(1, Math.max(-1, 1 - (2 * y) / height));
-  const a = Math.acos(c);
-  return Math.sin(a) * radius * (1 + 0.28 * Math.cos(a));
+  return profileRadius(Math.acos(c), radius);
 }
 
 export class Riley {
