@@ -1,0 +1,6 @@
+bgm.mp3
+  Track: "Infinite Peace" by Kevin MacLeod
+  Source: FreePD.com (via the SoundSafari/CC0-1.0-Music mirror on GitHub,
+  freepd.com folder)
+  License: CC0 1.0 Universal / public domain. No attribution required;
+  credited here as a courtesy.

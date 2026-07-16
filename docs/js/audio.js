@@ -1,8 +1,8 @@
-// One shared AudioContext for everything that makes sound (Riley's voice
-// and the background music). Browsers block audio until the first user
-// gesture; once this context is resumed inside a tap it stays running for
-// the whole session, so nothing gets silently swallowed by the autoplay
-// policy again.
+// One shared AudioContext for Riley's voice. Browsers block audio until
+// the first user gesture; once this context is resumed inside a tap it
+// stays running for the whole session, so a line that took a while to
+// synthesise can't be silently swallowed by the autoplay policy after
+// the gesture expires.
 
 let ctx = null;
 

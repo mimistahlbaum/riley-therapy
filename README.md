@@ -29,8 +29,8 @@ Everything the prototype had, plus the parts it left unfinished:
 - **Learn**: kid-friendly explanations of all four zones and their feelings, available from the settings sheet.
 - **Feelings journal**: check-ins are remembered locally on the device (never uploaded), so children and carers can look back together. Also in the settings sheet.
 - **An animated Riley**: the character now blinks, bobs, waves, nods and celebrates (the prototype used a static, unrigged model).
-- **Riley speaks**: messages are read aloud with Microsoft's online neural voice, falling back to the browser's built-in speech synthesis. Voice can be switched off.
-- **Gentle background music**: a soft, generative lullaby made locally with WebAudio (no audio files, nothing sent anywhere). It dips while Riley talks and can be switched off in settings.
+- **Riley speaks**: messages are read aloud with a local Zundamon speech server when one is running, then Microsoft's online neural voice, then the browser's built-in speech synthesis. Voice can be switched off.
+- **Calm background music**: "Infinite Peace" by Kevin MacLeod (public domain, CC0 via FreePD.com) loops quietly behind the conversation, dips while Riley talks and can be switched off in settings.
 - **Accessible, child-friendly design**: large touch targets, keyboard focus states, reduced-motion support and a bright rounded look.
 
 ### Privacy

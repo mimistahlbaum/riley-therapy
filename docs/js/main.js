@@ -7,7 +7,7 @@ import { Riley } from './riley.js';
 import { Dialogue } from './dialogue.js';
 import { Journal } from './journal.js';
 import { Speech } from './speech.js';
-import { Music } from './music.js';
+import { BGM } from './bgm.js';
 import { resumeAudio } from './audio.js';
 import { UI } from './ui.js';
 import { XRManager } from './vr.js';
@@ -25,23 +25,23 @@ world.onUpdate((dt, time) => riley.update(dt, time));
 const journal = new Journal();
 const speech = new Speech();
 
-// Gentle background music, made locally with WebAudio. It starts on the
-// first tap (browsers block sound before a gesture) and dips while Riley
-// is talking so the voice stays easy to hear.
-const music = new Music();
+// Gentle background music, ducked while Riley speaks so the voice
+// always stays on top.
+const bgm = new BGM();
+let bgmEnabled = true;
 try {
-  music.enabled = localStorage.getItem('riley-music-enabled') !== 'false';
+  bgmEnabled = localStorage.getItem('riley-bgm-enabled') !== 'false';
 } catch { /* storage unavailable: keep default */ }
 
 // Riley's little mouth moves while the voice is playing.
 speech.onstart = () => {
   riley.setTalking(true);
   ui.setReplayAttention(false);
-  music.duck(true);
+  bgm.setDucked(true);
 };
 speech.onend = () => {
   riley.setTalking(false);
-  music.duck(false);
+  bgm.setDucked(false);
 };
 // The browser blocked audio before the first tap: make the replay
 // button pulse so it's obvious how to hear Riley.
@@ -170,14 +170,14 @@ ui = new UI({
     if (on) speech.replay();
   },
   onReplay: () => speech.replay(),
-  onMusicToggle: (on) => {
-    try {
-      localStorage.setItem('riley-music-enabled', String(on));
-    } catch { /* storage unavailable */ }
-    // The toggle itself is a gesture, so the context can be unlocked here.
-    resumeAudio().then(() => music.setEnabled(on));
-  },
   onMotionToggle: (on) => world.setMotion(on),
+  onBGMToggle: (on) => {
+    bgmEnabled = on;
+    try {
+      localStorage.setItem('riley-bgm-enabled', String(on));
+    } catch { /* storage unavailable */ }
+    bgm.setEnabled(on);
+  },
   onFreeText: handleFreeText,
   onListenStart: () => speech.stop(),
   onAIToggle: (on) => {
@@ -193,7 +193,8 @@ ui = new UI({
 });
 ui.setAIVisible(aiEnabled);
 ui.setReplayVisible(speech.available && speech.enabled);
-ui.setMusicChecked(music.enabled);
+ui.setBGMChecked(bgmEnabled);
+bgm.setEnabled(bgmEnabled);
 
 // ---- WebXR -----------------------------------------------------------
 
@@ -231,13 +232,13 @@ world.start();
 dialogue.start();
 
 // Browsers block audio until the first interaction. Every tap tries to
-// unlock the shared AudioContext; once it succeeds the music starts and
-// any line the autoplay policy swallowed plays straight away. Listening
-// to every tap (not just the first) means a tap that arrives too early
-// to unlock doesn't use up the one chance.
+// unlock the shared AudioContext, restart any music the autoplay policy
+// blocked and play any line it swallowed. Listening to every tap (not
+// just the first) means one failed early attempt can't leave the app
+// silent for the rest of the session.
 window.addEventListener('pointerdown', async () => {
   await resumeAudio();
-  music.start();
+  bgm.unlock();
   speech.unlock();
 });
 
