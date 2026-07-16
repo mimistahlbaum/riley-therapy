@@ -49,7 +49,6 @@ export class Dialogue {
     this.feeling = null;
     this.activity = null;
     this.activityStep = 0;
-    this.fromToolbox = false;
   }
 
   emit(text, choices = []) {
@@ -81,10 +80,14 @@ export class Dialogue {
     if (this.freeChat?.()) {
       this.emit(`${pick(GREETINGS)} How are you feeling right now?`, [
         { id: 'show-feelings', label: '🙂 Pick from a list instead' },
+        { id: 'show-toolbox', label: '🧰 Toolbox' },
       ]);
       return;
     }
-    this.emit(`${pick(GREETINGS)} How are you feeling right now?`, this.feelingChoices());
+    this.emit(`${pick(GREETINGS)} How are you feeling right now?`, [
+      ...this.feelingChoices(),
+      { id: 'show-toolbox', label: '🧰 Toolbox' },
+    ]);
   }
 
   feelingChoices() {
@@ -106,6 +109,8 @@ export class Dialogue {
       case 'show-feelings':
         this.state = 'greeting';
         return this.emit('Of course! Which of these feels closest right now?', this.feelingChoices());
+      case 'show-toolbox':
+        return this.openToolbox();
       case 'unsure':
         return this.handleUnsure();
       case 'accept-activity':
@@ -209,20 +214,36 @@ export class Dialogue {
       'Here are some tools that work really well for this zone. Which one would you like to try?',
       [
         ...activities.map((a) => ({ id: `activity:${a.id}`, label: `${a.emoji} ${a.name}` })),
+        { id: 'show-toolbox', label: '🧰 See every tool' },
         { id: 'skip-activities', label: '🙅 Maybe later' },
+      ],
+    );
+  }
+
+  // The whole toolbox inside the same conversation: no separate screen,
+  // the child picks a tool and the flow carries straight on to the
+  // activity and the body check afterwards.
+  openToolbox() {
+    this.clearTimers();
+    this.activity = null;
+    this.state = 'toolbox';
+    this.emit(
+      '🧰 Here’s my toolbox! Every tool helps your body and feelings, and you can try one any time. Which one shall we try together?',
+      [
+        ...Object.values(ACTIVITIES).map((a) => ({ id: `activity:${a.id}`, label: `${a.emoji} ${a.name}` })),
+        { id: 'restart', label: '💬 Check in instead' },
       ],
     );
   }
 
   // ---- Activities ----------------------------------------------------
 
-  startActivity(activityId, { fromToolbox = false } = {}) {
+  startActivity(activityId) {
     const activity = ACTIVITIES[activityId];
     if (!activity) return this.offerActivities();
     this.clearTimers();
     this.activity = activity;
     this.activityStep = 0;
-    this.fromToolbox = fromToolbox;
     this.state = 'activity';
     this.emit(`${activity.emoji} ${activity.intro}`, [
       { id: 'activity-next', label: '▶️ I’m ready!' },
@@ -301,14 +322,8 @@ export class Dialogue {
     this.clearTimers();
     this.activity = null;
     this.onGesture('celebrate');
-    if (this.fromToolbox) {
-      this.state = 'closing';
-      this.emit(`${a ? a.outro : 'All done!'} Would you like to try another tool, or check in with me?`, [
-        { id: 'another-activity', label: '🧰 Another tool' },
-        { id: 'restart', label: '💬 Check in' },
-      ]);
-      return;
-    }
+    // Every activity flows into the same gentle body check, so check-in,
+    // tools and feedback feel like one conversation.
     this.state = 'recheck';
     this.emit(`${a ? a.outro : 'All done!'} How does your body feel now?`, [
       { id: 'recheck-better', label: '😊 Better' },
@@ -320,17 +335,9 @@ export class Dialogue {
   stopActivity() {
     this.clearTimers();
     this.activity = null;
-    if (this.fromToolbox) {
-      this.state = 'closing';
-      this.emit('No worries, we can stop. You’re the boss of your own body. 💗', [
-        { id: 'another-activity', label: '🧰 Try another tool' },
-        { id: 'restart', label: '💬 Check in' },
-      ]);
-      return;
-    }
     this.state = 'pick-activity';
-    this.emit('No worries, we can stop. Would you like to try a different tool instead?', [
-      { id: 'another-activity', label: '🧰 See the tools' },
+    this.emit('No worries, we can stop. You’re the boss of your own body. 💗 Would you like to try a different tool instead?', [
+      { id: 'show-toolbox', label: '🧰 See the tools' },
       { id: 'skip-activities', label: '🙅 Maybe later' },
     ]);
   }

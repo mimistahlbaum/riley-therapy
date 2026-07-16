@@ -34,6 +34,9 @@ const dialogue = new Dialogue({
     ui.showMessage(msg);
     xr.panel.setMessage(msg);
     speech.speak(msg.text);
+    // Every message Riley shows — scripted or AI — joins the AI's memory,
+    // so typing mid-flow continues the conversation instead of restarting it.
+    ai.note('assistant', msg.text);
   },
   onZone: (zoneId) => {
     const zone = zoneId ? ZONES[zoneId] : null;
@@ -61,8 +64,11 @@ dialogue.freeChat = () => aiEnabled && ai.available;
 
 // Choice ids beginning with "ai:" are tappable suggestions from the AI;
 // everything else belongs to the scripted dialogue.
-function routeChoice(id) {
+function routeChoice(id, label) {
   if (id.startsWith('ai:')) return handleFreeText(id.slice(3));
+  if (id === 'show-toolbox') ui?.setActiveTab('toolbox');
+  else if (id === 'restart') ui?.setActiveTab('checkin');
+  if (label) ai.note('user', label);
   return dialogue.choose(id);
 }
 
@@ -120,7 +126,7 @@ async function handleFreeText(text) {
 ui = new UI({
   journal,
   onChoice: routeChoice,
-  onToolboxPick: (activityId) => dialogue.startActivity(activityId, { fromToolbox: true }),
+  onToolboxOpen: () => dialogue.openToolbox(),
   onLearnAsk: (zoneId) => {
     const zone = ZONES[zoneId];
     dialogue.clearTimers();
