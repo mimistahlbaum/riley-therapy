@@ -1,0 +1,17 @@
+{
+  // Serves the web app in docs/ at https://mimiyoshii.com/research/riley-therapy/
+  // Requires Wrangler 4.148.0 or later (assets.base_path).
+  // The mimiyoshii.com zone must be on the same Cloudflare account.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "riley-therapy",
+  "compatibility_date": "2026-11-25",
+  "assets": {
+    "directory": "docs",
+    "base_path": "/research/riley-therapy",
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [
+    { "pattern": "mimiyoshii.com/research/riley-therapy", "zone_name": "mimiyoshii.com" },
+    { "pattern": "mimiyoshii.com/research/riley-therapy/*", "zone_name": "mimiyoshii.com" }
+  ]
+}

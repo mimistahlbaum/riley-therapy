@@ -108,3 +108,11 @@ For Meta Quest, go to "File" → "Build and Run" with your device connected via 
 - [Professor Mark Billinghurst](https://people.unisa.edu.au/Mark.Billinghurst) for organizing the Winter School on AI for XR, which provided the opportunity to learn about AI for XR and to work on this project.
 - Tamil Selvan ([@GTamilSelvan07](https://github.com/GTamilSelvan07)) for helping us with Convai and Unity.
 - Zirui Xiao ([@FrostyAlien](https://github.com/FrostyAlien)) for helping us with Unity.
+
+## Cloudflare deployment (mimiyoshii.com)
+
+The web version in `docs/` is also served at `https://mimiyoshii.com/research/riley-therapy/` by a Cloudflare Worker with static assets (`wrangler.jsonc`). It uses relative paths only, so it works under that sub-path.
+
+- Deploys run on Cloudflare Workers Builds (Worker `riley-therapy`). Pushing to `main` redeploys the site
+- Manual deploy: `npx wrangler@latest deploy` (Wrangler 4.148.0 or later)
+- The GitHub Pages version keeps working as before
